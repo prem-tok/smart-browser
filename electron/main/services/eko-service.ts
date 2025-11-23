@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { ConfigManager } from "../utils/config-manager";
 import type { HumanRequestMessage, HumanResponseMessage, HumanInteractionContext } from "../../../src/models/human-interaction";
+import { newPage as playwrightNewPage, goto as playwrightGoto } from "../../playwrightController";
 
 export class EkoService {
   private eko: Eko | null = null;
@@ -13,6 +14,7 @@ export class EkoService {
   private detailView: WebContentsView;
   private mcpClient!: SimpleSseMcpClient;
   private agents!: any[];
+  private windowId: string;
 
   // Store pending human interaction requests
   private pendingHumanRequests = new Map<string, {
@@ -29,6 +31,7 @@ export class EkoService {
   constructor(mainWindow: BrowserWindow, detailView: WebContentsView) {
     this.mainWindow = mainWindow;
     this.detailView = detailView;
+    this.windowId = `main-${mainWindow.id}`;
     this.initializeEko();
   }
 
@@ -116,13 +119,14 @@ export class EkoService {
         agentContext: AgentContext,
         prompt: string,
         options: string[],
-        multiple: boolean
+        multiple?: boolean,
+        _extInfo?: any
       ): Promise<string[]> => {
         const result = await this.requestHumanInteraction(agentContext, {
           interactType: 'select',
           prompt,
           selectOptions: options,
-          selectMultiple: multiple
+          selectMultiple: multiple ?? false
         });
         return Array.isArray(result) ? result : [];
       },
@@ -211,8 +215,8 @@ export class EkoService {
   }
 
   /**
-   * Reload LLM configuration and reinitialize Eko instance
-   * Called when user changes model configuration in UI
+   * Reload LLM and agent configuration and reinitialize Eko instance
+   * Called when user changes model or agent configuration in UI
    */
   public reloadConfig(): void {
     Log.info('Reloading EkoService configuration...');
@@ -232,11 +236,43 @@ export class EkoService {
     // Reject all pending human interactions
     this.rejectAllHumanRequests(new Error('EkoService configuration reloaded'));
 
-    // Get new LLMs configuration
+    // Get new configurations
     const configManager = ConfigManager.getInstance();
     const llms: LLMs = configManager.getLLMsConfig();
+    const agentConfig = configManager.getAgentConfig();
 
     Log.info('New LLMs config:', llms.default?.model);
+    Log.info('Reloading agent config with custom prompts');
+
+    // Recreate agents with updated config
+    const appPath = app.isPackaged
+      ? path.join(app.getPath('userData'), 'static')
+      : path.join(process.cwd(), 'public', 'static');
+
+    this.agents = [];
+
+    if (agentConfig.browserAgent.enabled) {
+      this.agents.push(
+        new BrowserAgent(
+          this.detailView,
+          this.mcpClient,
+          agentConfig.browserAgent.customPrompt
+        )
+      );
+      Log.info('BrowserAgent reloaded with custom prompt:', agentConfig.browserAgent.customPrompt ? 'Yes' : 'No');
+    }
+
+    if (agentConfig.fileAgent.enabled) {
+      this.agents.push(
+        new FileAgent(
+          this.detailView,
+          appPath,
+          this.mcpClient,
+          agentConfig.fileAgent.customPrompt
+        )
+      );
+      Log.info('FileAgent reloaded with custom prompt:', agentConfig.fileAgent.customPrompt ? 'Yes' : 'No');
+    }
 
     // Create new Eko instance with updated config and fresh callback
     const callback = this.createCallback();
@@ -256,6 +292,48 @@ export class EkoService {
   }
 
   /**
+   * Ensure Playwright page exists and is synced with detailView
+   * This is critical for BrowserAgent to perform actions
+   */
+  private async ensurePlaywrightPage(): Promise<void> {
+    try {
+      // Try to create page - if it already exists, this will return an error
+      const pageResult = await playwrightNewPage(this.windowId);
+      
+      if (!pageResult.ok) {
+        if (pageResult.error?.code === 'INVALID_ARG') {
+          // Page already exists, that's fine
+          Log.info(`[EkoService] Playwright page already exists for windowId: ${this.windowId}`);
+        } else {
+          // Some other error occurred
+          Log.error(`[EkoService] Failed to create Playwright page: ${pageResult.error?.message}`);
+          // Don't throw - BrowserAgent might still work
+          return;
+        }
+      } else {
+        Log.info(`[EkoService] Created Playwright page for windowId: ${this.windowId}`);
+      }
+
+      // Sync Playwright page URL with detailView URL
+      const currentUrl = this.detailView.webContents.getURL();
+      if (currentUrl && currentUrl !== 'about:blank' && currentUrl.startsWith('http')) {
+        Log.info(`[EkoService] Syncing Playwright page to detailView URL: ${currentUrl}`);
+        const gotoResult = await playwrightGoto(this.windowId, currentUrl);
+        if (!gotoResult.ok) {
+          Log.warn(`[EkoService] Failed to sync Playwright page URL: ${gotoResult.error?.message}`);
+        } else {
+          Log.info(`[EkoService] Playwright page synced successfully`);
+        }
+      } else {
+        Log.info(`[EkoService] detailView URL is not ready for sync: ${currentUrl}`);
+      }
+    } catch (error) {
+      Log.error('[EkoService] Error ensuring Playwright page:', error);
+      // Don't throw - allow task to continue, BrowserAgent will handle errors
+    }
+  }
+
+  /**
    * Run new task
    */
   async run(message: string): Promise<EkoResult | null> {
@@ -267,17 +345,72 @@ export class EkoService {
     }
 
     console.log('EkoService running task:', message);
+    Log.info(`[EkoService] Starting task: ${message}`);
+    
+    // Ensure Playwright page exists before running task
+    Log.info('[EkoService] Ensuring Playwright page exists...');
+    await this.ensurePlaywrightPage();
+    Log.info('[EkoService] Playwright page ready, starting agent task...');
+    
     let result = null;
     try {
       result = await this.eko.run(message);
     } catch (error: any) {
       Log.error('EkoService run error:', error);
 
-      // Extract error message
-      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      // Extract and format error message with better handling for API errors
+      const errorMessage = this.formatErrorMessage(error);
       this.sendErrorToFrontend(errorMessage, error);
     }
     return result;
+  }
+
+  /**
+   * Format error message with special handling for API quota/rate limit errors
+   */
+  private formatErrorMessage(error: any): string {
+    const rawMessage = error?.message || error?.toString() || 'Unknown error occurred';
+    
+    // Check for quota/rate limit errors
+    if (rawMessage.includes('quota') || rawMessage.includes('exceeded') || rawMessage.includes('rate limit') || rawMessage.includes('rate-limits')) {
+      const isGoogleError = rawMessage.includes('Gemini') || rawMessage.includes('google') || rawMessage.includes('AI_APICallError');
+      
+      if (isGoogleError) {
+        // Extract suggested model if mentioned in error
+        const modelMatch = rawMessage.match(/models\/([^\s\)]+)/);
+        const suggestedModel = modelMatch ? modelMatch[1] : 'gemini-2.5-flash';
+        
+        return `🚫 Google API Quota Exceeded\n\n` +
+               `Your Google Gemini API quota has been reached. Here are your options:\n\n` +
+               `1. ⏱️  Wait a few minutes and try again\n` +
+               `2. 🔄 Switch to a different model:\n` +
+               `   - ${suggestedModel} (suggested by Google)\n` +
+               `   - gemini-2.5-flash (latest, recommended)\n` +
+               `   - gemini-2.5-flash-lite (faster, lower cost)\n` +
+               `   - gemini-2.5-pro (for complex tasks)\n` +
+               `   - gemini-2.0-flash-exp (alternative)\n` +
+               `   - gemini-1.5-flash-latest (stable fallback)\n\n` +
+               `3. 🔑 Check your Google Cloud Console for quota limits\n` +
+               `   https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas\n\n` +
+               `4. 🔀 Temporarily switch to a different provider (DeepSeek, Qwen, etc.)\n\n` +
+               `💡 Tip: You can change the model in Settings > Model Configuration\n\n` +
+               `Original error: ${rawMessage.substring(0, 200)}${rawMessage.length > 200 ? '...' : ''}`;
+      }
+      
+      return `🚫 API Quota/Rate Limit Exceeded\n\n` +
+             `${rawMessage}\n\n` +
+             `Please wait a few minutes before trying again, or switch to a different model/provider in Settings.`;
+    }
+    
+    // Check for authentication errors
+    if (rawMessage.includes('API key') || rawMessage.includes('authentication') || rawMessage.includes('401') || rawMessage.includes('403')) {
+      return `🔐 Authentication Error\n\n` +
+             `Please check your API key configuration in Settings > Model Configuration.\n\n` +
+             `Error: ${rawMessage}`;
+    }
+    
+    // Return original message for other errors
+    return rawMessage;
   }
 
   /**
@@ -308,13 +441,16 @@ export class EkoService {
       return null;
     }
 
+    // Ensure Playwright page exists before modifying task
+    await this.ensurePlaywrightPage();
+
     let result = null;
     try {
       await this.eko.modify(taskId, message);
       result = await this.eko.execute(taskId);
     } catch (error: any) {
       Log.error('EkoService modify error:', error);
-      const errorMessage = error?.message || error?.toString() || 'Failed to modify task';
+      const errorMessage = this.formatErrorMessage(error);
       this.sendErrorToFrontend(errorMessage, error, taskId);
     }
     return result;
@@ -336,7 +472,7 @@ export class EkoService {
       return await this.eko.execute(taskId);
     } catch (error: any) {
       Log.error('EkoService execute error:', error);
-      const errorMessage = error?.message || error?.toString() || 'Failed to execute task';
+      const errorMessage = this.formatErrorMessage(error);
       this.sendErrorToFrontend(errorMessage, error, taskId);
       return null;
     }

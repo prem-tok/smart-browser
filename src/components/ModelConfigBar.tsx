@@ -22,21 +22,26 @@ const MODELS: Record<string, string[]> = {
     'deepseek-reasoner',
   ],
   google: [
-    'gemini-1.5-flash-latest',
-    'gemini-2.0-flash-thinking-exp-01-21',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
     'gemini-2.0-flash-exp',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash-8b',
+    'gemini-2.0-flash-thinking-exp-01-21',
+    'gemini-1.5-flash-latest',
     'gemini-1.5-pro-latest',
+    'gemini-1.5-flash-002',
     'gemini-1.5-pro-002',
-    'gemini-exp-1206',
+    'gemini-1.5-flash-8b',
   ],
   openrouter: [
+    'anthropic/claude-3.7-sonnet',
     'anthropic/claude-3.5-sonnet',
-    'anthropic/claude-3-haiku',
-    'deepseek/deepseek-coder',
+    'google/gemini-2.5-pro',
+    'google/gemini-2.5-flash',
+    'google/gemini-2.0-flash-exp',
     'google/gemini-flash-1.5',
     'google/gemini-pro-1.5',
+    'deepseek/deepseek-coder',
     'x-ai/grok-beta',
     'mistralai/mistral-nemo',
     'qwen/qwen-110b-chat',
@@ -45,11 +50,8 @@ const MODELS: Record<string, string[]> = {
   anthropic: [
     'claude-3-7-sonnet-20250219',
     'claude-3-5-sonnet-latest',
-    'claude-3-5-sonnet-20240620',
     'claude-3-5-haiku-latest',
-    'claude-3-opus-latest',
-    'claude-3-sonnet-20240229',
-    'claude-3-haiku-20240307',
+    'claude-3-5-sonnet-20240620',
   ],
   qwen: [
     'qwen-max',
@@ -105,6 +107,11 @@ export const ModelConfigBar: React.FC = () => {
       await window.api.setSelectedProvider(value);
       const source = await window.api.getApiKeySource(value);
       setApiKeySource(source);
+      
+      // Reload agent config to apply new model
+      if (window.api.reloadAgentConfig) {
+        await window.api.reloadAgentConfig();
+      }
     } catch (error) {
       console.error('Failed to change provider:', error);
       message.error(t('provider_change_failed'));
@@ -123,6 +130,12 @@ export const ModelConfigBar: React.FC = () => {
       };
       await window.api.saveUserModelConfigs(updatedConfigs);
       setConfigs(updatedConfigs);
+      
+      // Reload agent config to apply new model
+      if (window.api.reloadAgentConfig) {
+        await window.api.reloadAgentConfig();
+      }
+      
       message.success(t('model_updated'));
     } catch (error) {
       console.error('Failed to update model:', error);

@@ -45,24 +45,34 @@ export class ServerManager {
 
   /**
    * Wait for server to be ready
-   * @param timeout Maximum wait time
+   * @param timeout Maximum wait time in milliseconds
    */
   async waitForServer(timeout: number = 30000): Promise<boolean> {
-    const url = `http://localhost:${DEFAULT_PORT}/home`;
-    const maxRetries = Math.floor(timeout / 1000); // Check once per second
+    // Check base URL for health (any route should work)
+    const url = `http://localhost:${DEFAULT_PORT}`;
+    const retryInterval = 1000; // Wait 1 second between retries
+    const checkTimeout = 3000; // Each health check times out after 3 seconds
+    // Calculate max retries based on timeout and retry interval
+    // We use retryInterval as primary factor since failed checks timeout quickly
+    // Add buffer to account for check timeout overhead
+    const maxRetries = Math.max(1, Math.floor((timeout - checkTimeout) / retryInterval));
 
-    console.log(`Waiting for Next.js server to be ready: ${url}`);
+    console.log(`Waiting for Next.js server to be ready: ${url}, timeout: ${timeout}ms, max retries: ${maxRetries}`);
 
     const isHealthy = await this.healthChecker.waitUntilHealthy(url, {
       maxRetries,
-      retryInterval: 1000,
-      timeout: 3000,
+      retryInterval,
+      timeout: checkTimeout,
     });
 
     if (isHealthy) {
       console.log('Next.js server is ready');
     } else {
-      console.error('Next.js server startup timeout');
+      if (isDev) {
+        console.error('Next.js server startup timeout. In development mode, make sure to start the Next.js dev server first with: pnpm run next (or use pnpm run dev to start both)');
+      } else {
+        console.error('Next.js server startup timeout');
+      }
     }
 
     return isHealthy;
@@ -77,9 +87,16 @@ export class ServerManager {
   }
 
   /**
-   * Get server URL
+   * Get server URL (base URL without path)
    */
   getServerURL(): string {
+    return `http://localhost:${DEFAULT_PORT}`;
+  }
+
+  /**
+   * Get home page URL (for backward compatibility)
+   */
+  getHomeURL(): string {
     return `http://localhost:${DEFAULT_PORT}/home`;
   }
 

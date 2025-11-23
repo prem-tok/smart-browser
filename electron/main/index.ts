@@ -29,6 +29,7 @@ import { taskScheduler } from "./services/task-scheduler";
 import { windowContextManager, type WindowContext } from "./services/window-context-manager";
 import { cwd } from "node:process";
 import { registerAllIpcHandlers } from "./ipc";
+import { startPlaywright, stopPlaywright, newPage as playwrightNewPage, closePage as playwrightClosePage } from "../playwrightController";
 
 Object.assign(console, log.functions);
 
@@ -132,64 +133,53 @@ async function initializeMainWindow(): Promise<BrowserWindow> {
   // Create main window (includes transition page and service waiting logic)
   mainWindow = await mainWindowManager.createMainWindow();
 
-  mainWindow.contentView.setBounds({
-    x: 0,
-    y: 0,
-    width: mainWindow.getBounds().width,
-    height: mainWindow.getBounds().height,
-  });
-
-  // Create detail panel area
-  detailView = createView(`https://www.google.com`, "view", '1');
-  mainWindow.contentView.addChildView(detailView);
-  detailView.setBounds({
-    x: 818,
-    y: 264,
-    width: 748,
-    height: 560,
-  });
-
-  // Set detail view hidden by default
-  detailView.setVisible(false);
-
-  detailView.webContents.setWindowOpenHandler(({url}) => {
-    detailView.webContents.loadURL(url);
-    return {
-      action: "deny",
+  // Wait for loading page to finish
+  await new Promise<void>((resolve) => {
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', () => resolve());
+    } else {
+      resolve();
     }
-  })
-
-  // Listen for detail view URL changes
-  detailView.webContents.on('did-navigate', (_event, url) => {
-    console.log('detail view did-navigate:', url);
-    mainWindow?.webContents.send('url-changed', url);
   });
 
-  detailView.webContents.on('did-navigate-in-page', (_event, url) => {
-    console.log('detail view did-navigate-in-page:', url);
-    mainWindow?.webContents.send('url-changed', url);
+  // Now wait for React app to finish loading (after server is ready and /main loads)
+  // The main window will load /main after server is ready, so we wait for that
+  await new Promise<void>((resolve) => {
+    const checkUrlAndWait = () => {
+      const currentUrl = mainWindow.webContents.getURL();
+      // Check if we've loaded the React app (not the loading page)
+      // Loading page is file://, React app is http://localhost:5173/main
+      if (currentUrl.includes('localhost:5173') || currentUrl.includes('/main')) {
+        // Wait for React app to finish loading
+        if (mainWindow.webContents.isLoading()) {
+          mainWindow.webContents.once('did-finish-load', () => {
+            console.log('[Main] React app finished loading, creating detailView...');
+            resolve();
+          });
+        } else {
+          console.log('[Main] React app already loaded, creating detailView...');
+          resolve();
+        }
+      } else {
+        // Still on loading page (file://), wait for navigation to /main
+        console.log('[Main] Waiting for React app to load, current URL:', currentUrl);
+        mainWindow.webContents.once('did-navigate', checkUrlAndWait);
+        // Also listen for did-finish-load in case we miss the navigate event
+        mainWindow.webContents.once('did-finish-load', checkUrlAndWait);
+      }
+    };
+    
+    checkUrlAndWait();
   });
 
-  // Initialize EkoService
-  ekoService = new EkoService(mainWindow, detailView);
-
-  // Register main window to windowContextManager
-  const mainWindowContext: WindowContext = {
-    window: mainWindow,
-    detailView,
-    historyView,
-    ekoService,
-    webContentsId: mainWindow.webContents.id,
-    windowType: 'main'
-  };
-  windowContextManager.registerWindow(mainWindowContext);
-  console.log('[Main] Main window registered to WindowContextManager');
+  // Now create detailView after React app is ready
+  createDetailView();
 
   // Listen for window close event (close: triggered before closing, can be prevented)
   // Unified handling for Mac and Windows: check task status, prompt user
   mainWindow.on('close', async (event) => {
     // Check if any task is running
-    const hasRunningTask = ekoService.hasRunningTask();
+    const hasRunningTask = ekoService?.hasRunningTask() || false;
 
     if (hasRunningTask) {
       // Prevent default close behavior
@@ -213,10 +203,12 @@ async function initializeMainWindow(): Promise<BrowserWindow> {
         console.log('[Main] User chose to stop task');
 
         // Get all task IDs
-        const allTaskIds = ekoService['eko']?.getAllTaskId() || [];
+        const allTaskIds = ekoService?.['eko']?.getAllTaskId() || [];
 
         // Abort all tasks
-        await ekoService.abortAllTasks();
+        if (ekoService) {
+          await ekoService.abortAllTasks();
+        }
 
         // Send abort event (frontend will listen and update IndexedDB)
         allTaskIds.forEach(taskId => {
@@ -253,11 +245,16 @@ async function initializeMainWindow(): Promise<BrowserWindow> {
 
   // Listen for window closed event (closed: triggered after window is closed)
   // Clean up context
-  mainWindow.on('closed', () => {
+  mainWindow.on('closed', async () => {
     console.log('[Main] Main window closed, cleaning up context');
     try {
       if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
         windowContextManager.unregisterWindow(mainWindow.webContents.id);
+        
+        // Close Playwright page
+        const windowId = `main-${mainWindow.id}`;
+        await playwrightClosePage(windowId);
+        console.log(`[Main] Playwright page closed for window: ${windowId}`);
       }
     } catch (error) {
       console.error('[Main] Failed to clean up main window context:', error);
@@ -268,9 +265,154 @@ async function initializeMainWindow(): Promise<BrowserWindow> {
   return mainWindow;
 }
 
+/**
+ * Create and setup detailView
+ * This is called after React app is ready to avoid loading browser before UI is ready
+ */
+function createDetailView(): void {
+  if (detailView) {
+    console.log('[Main] DetailView already exists, skipping creation');
+    return;
+  }
+
+  console.log('[Main] Creating detailView after React app is ready...');
+  
+  // Create detailView with Google - browser opens with search engine ready
+  detailView = createView('https://www.google.com', "view", '1');
+  
+  // Add detailView to main window's contentView
+  mainWindow.contentView.addChildView(detailView);
+  
+  // Initial bounds - will be updated by React when BrowserViewport mounts
+  // Position to fill main viewport area (below TopNavBar, accounting for LeftSidebar)
+  const leftSidebarWidth = 280; // Width of left sidebar when expanded
+  const topNavBarHeight = 48; // Height of top navigation bar
+  const windowBounds = mainWindow.getBounds();
+  
+  detailView.setBounds({
+    x: leftSidebarWidth,
+    y: topNavBarHeight,
+    width: windowBounds.width - leftSidebarWidth,
+    height: windowBounds.height - topNavBarHeight,
+  });
+
+  // Set detail view visible by default (browser is primary view)
+  detailView.setVisible(true);
+  
+  // Ensure detailView is on top (z-order)
+  mainWindow.contentView.setBounds({
+    x: 0,
+    y: 0,
+    width: windowBounds.width,
+    height: windowBounds.height,
+  });
+  
+  console.log('[Main] DetailView created and positioned:', {
+    x: leftSidebarWidth,
+    y: topNavBarHeight,
+    width: windowBounds.width - leftSidebarWidth,
+    height: windowBounds.height - topNavBarHeight,
+  });
+
+  // Prevent detailView from opening new windows - keep everything embedded
+  detailView.webContents.setWindowOpenHandler(({ url }) => {
+    console.log('[Main] Blocking new window from detailView, loading in current view:', url);
+    detailView.webContents.loadURL(url);
+    return {
+      action: "deny",
+    };
+  });
+
+  // Also prevent main window from opening new windows
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    console.log('[Main] Blocking new window from main window, loading in detailView:', url);
+    if (detailView) {
+      detailView.webContents.loadURL(url);
+    }
+    return {
+      action: "deny",
+    };
+  });
+
+  // Set zoom factor for detailView
+  const setDetailViewZoom = () => {
+    try {
+      detailView.webContents.setZoomFactor(0.7); // 130% zoom (30% zoom in)
+      console.log('[Main] DetailView zoom factor set to 0.7');
+    } catch (error) {
+      console.error('[Main] Failed to set detailView zoom factor:', error);
+    }
+  };
+
+  // Set zoom immediately after detailView is created
+  setTimeout(() => {
+    setDetailViewZoom();
+  }, 100);
+
+  // Listen for detail view URL changes and sync with Playwright page
+  detailView.webContents.on('did-navigate', async (_event, url) => {
+    console.log('detail view did-navigate:', url);
+    mainWindow?.webContents.send('url-changed', url);
+    setDetailViewZoom(); // Set zoom on navigation
+    
+    // Sync Playwright page URL if it exists
+    if (url && url.startsWith('http')) {
+      try {
+        const { goto: playwrightGoto } = await import('../playwrightController');
+        const windowId = `main-${mainWindow.id}`;
+        const gotoResult = await playwrightGoto(windowId, url);
+        if (gotoResult.ok) {
+          console.log(`[Main] Synced Playwright page to: ${url}`);
+        }
+      } catch (error) {
+        // Playwright page might not exist yet, that's okay
+        console.log('[Main] Playwright page not available for sync (will be created when needed)');
+      }
+    }
+  });
+
+  detailView.webContents.on('did-navigate-in-page', (_event, url) => {
+    console.log('detail view did-navigate-in-page:', url);
+    mainWindow?.webContents.send('url-changed', url);
+    setDetailViewZoom(); // Set zoom on in-page navigation
+  });
+
+  // Also set zoom when page finishes loading
+  detailView.webContents.on('did-finish-load', () => {
+    setDetailViewZoom();
+  });
+
+  // Initialize EkoService (will be created when detailView is ready)
+  if (!ekoService) {
+    ekoService = new EkoService(mainWindow, detailView);
+  }
+
+  // Register main window to windowContextManager
+  const mainWindowContext: WindowContext = {
+    window: mainWindow,
+    detailView,
+    historyView,
+    ekoService: ekoService!,
+    webContentsId: mainWindow.webContents.id,
+    windowType: 'main'
+  };
+  windowContextManager.registerWindow(mainWindowContext);
+  console.log('[Main] Main window registered to WindowContextManager');
+
+  // Note: Playwright page is NOT created on startup to prevent separate browser window
+  // Pages will be created on-demand when AI agent needs to perform automation tasks
+  // This keeps the UI clean with only the Electron window visible
+  console.log('[Main] Playwright page will be created on-demand when needed');
+}
+
 (async () => {
   await app.whenReady();
   console.log("App is ready");
+
+  // Note: Playwright browser is NOT started on app startup
+  // It will be started automatically when first needed by the AI agent
+  // This prevents any browser windows from appearing and saves resources
+  console.log('[Main] Playwright browser will start on-demand when AI agent needs it');
 
   // Register global client protocol
   registerClientProtocol(protocol);
@@ -325,6 +467,16 @@ app.on("window-all-closed", () => {
   console.log('[Main] All windows closed, app continues running in background');
   // Don't call app.quit(), let app continue running
   // Scheduled tasks will continue executing in background
+});
+
+// Clean up Playwright on app quit
+app.on("before-quit", async () => {
+  console.log('[Main] App quitting, stopping Playwright');
+  try {
+    await stopPlaywright();
+  } catch (error) {
+    console.error('[Main] Error stopping Playwright:', error);
+  }
 });
 
 // Register all IPC handlers

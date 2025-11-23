@@ -1,0 +1,62 @@
+.browserViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary, #ffffff);
+  overflow: hidden;
+}
+
+.browserContent {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.viewportContainer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* This is where Electron's detailView will be positioned */
+.viewportContainer::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.loadingOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+:global([data-theme='dark']) .loadingOverlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.loadingSpinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color, #e5e7eb);
+  border-top-color: var(--primary-color, #10a37f);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

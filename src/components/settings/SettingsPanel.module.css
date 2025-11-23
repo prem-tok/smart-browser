@@ -1,0 +1,64 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tabs {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabs :global(.ant-tabs-content-holder) {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tabContent {
+  margin: 24px;
+  max-width: 800px;
+}
+
+.tabContent :global(.ant-form-item-label) {
+  font-weight: 500;
+}
+
+.tabContent :global(.ant-typography) {
+  margin-bottom: 16px;
+}
+
+.tabContent :global(.ant-divider) {
+  margin: 24px 0;
+}
+
+.tabContent ul {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.tabContent li {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .tabContent {
+    margin: 16px;
+  }
+  
+  .header {
+    padding: 16px;
+  }
+}
+

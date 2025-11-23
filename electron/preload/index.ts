@@ -59,6 +59,11 @@ const api = {
   // Agent configuration APIs
   getAgentConfig: () => ipcRenderer.invoke('agent:get-config'),
   saveAgentConfig: (config: any) => ipcRenderer.invoke('agent:save-config', config),
+
+  // Human behavior settings APIs
+  getHumanBehaviorSettings: () => ipcRenderer.invoke('config:get-human-behavior-settings'),
+  saveHumanBehaviorSettings: (settings: any) => ipcRenderer.invoke('config:save-human-behavior-settings', settings),
+  updateHumanBehaviorConfig: (settings: any) => ipcRenderer.invoke('config:update-human-behavior-config', settings),
   getMcpTools: () => ipcRenderer.invoke('agent:get-mcp-tools'),
   setMcpToolEnabled: (toolName: string, enabled: boolean) => ipcRenderer.invoke('agent:set-mcp-tool-enabled', toolName, enabled),
   reloadAgentConfig: () => ipcRenderer.invoke('agent:reload-config'),
@@ -66,6 +71,8 @@ const api = {
   // Detail view control APIs
   setDetailViewVisible: (visible: boolean) => ipcRenderer.invoke('set-detail-view-visible', visible),
   navigateDetailView: (url: string) => ipcRenderer.invoke('navigate-detail-view', url),
+  positionDetailView: (bounds: { x: number; y: number; width: number; height: number }) => 
+    ipcRenderer.invoke('position-detail-view', bounds),
   // URL retrieval and monitoring APIs
   getCurrentUrl: () => ipcRenderer.invoke('get-current-url'),
   onUrlChange: (callback: (url: string) => void) => {
@@ -91,6 +98,138 @@ const api = {
   // Task aborted by system listener
   onTaskAbortedBySystem: (callback: (event: any) => void) =>
     ipcRenderer.on('task-aborted-by-system', (_, event) => callback(event)),
+
+  // Playwright APIs
+  playwright: {
+    newPage: (windowId: string) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      return ipcRenderer.invoke('playwright:newPage', windowId);
+    },
+    closePage: (windowId: string) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      return ipcRenderer.invoke('playwright:closePage', windowId);
+    },
+    goto: (windowId: string, url: string) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (typeof url !== 'string' || url.length === 0 || url.length > 2048) {
+        return Promise.reject(new Error('Invalid url: must be a non-empty string (max 2048 chars)'));
+      }
+      return ipcRenderer.invoke('playwright:goto', windowId, url);
+    },
+    listElements: (windowId: string, selector?: string, options?: { limit?: number }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (selector !== undefined && (typeof selector !== 'string' || selector.length > 1000)) {
+        return Promise.reject(new Error('Invalid selector: must be a string (max 1000 chars) or undefined'));
+      }
+      return ipcRenderer.invoke('playwright:listElements', windowId, selector, options);
+    },
+    click: (windowId: string, selector: string, options?: { 
+      timeout?: number; 
+      humanized?: boolean; 
+      humanOptions?: {
+        steps?: number;
+        jitter?: number;
+        minDelay?: number;
+        maxDelay?: number;
+        moveStrategy?: 'bezier' | 'linear';
+        safety?: { maxSteps?: number; maxDurationMs?: number };
+        forceRaw?: boolean;
+      }
+    }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (typeof selector !== 'string' || selector.length === 0 || selector.length > 1000) {
+        return Promise.reject(new Error('Invalid selector: must be a non-empty string (max 1000 chars)'));
+      }
+      // Validate humanOptions if provided
+      if (options?.humanOptions) {
+        const ho = options.humanOptions;
+        if (ho.steps !== undefined && (typeof ho.steps !== 'number' || ho.steps < 1 || ho.steps > 100)) {
+          return Promise.reject(new Error('humanOptions.steps must be a number between 1 and 100'));
+        }
+        if (ho.jitter !== undefined && (typeof ho.jitter !== 'number' || ho.jitter < 0 || ho.jitter > 20)) {
+          return Promise.reject(new Error('humanOptions.jitter must be a number between 0 and 20'));
+        }
+        if (ho.minDelay !== undefined && (typeof ho.minDelay !== 'number' || ho.minDelay < 0 || ho.minDelay > 1000)) {
+          return Promise.reject(new Error('humanOptions.minDelay must be a number between 0 and 1000'));
+        }
+        if (ho.maxDelay !== undefined && (typeof ho.maxDelay !== 'number' || ho.maxDelay < 0 || ho.maxDelay > 1000)) {
+          return Promise.reject(new Error('humanOptions.maxDelay must be a number between 0 and 1000'));
+        }
+        if (ho.moveStrategy !== undefined && ho.moveStrategy !== 'bezier' && ho.moveStrategy !== 'linear') {
+          return Promise.reject(new Error('humanOptions.moveStrategy must be "bezier" or "linear"'));
+        }
+      }
+      return ipcRenderer.invoke('playwright:click', windowId, selector, options);
+    },
+    type: (windowId: string, selector: string, text: string, options?: { 
+      timeout?: number; 
+      humanized?: boolean;
+      typeOptions?: {
+        minDelay?: number;
+        maxDelay?: number;
+        clearFirst?: boolean;
+        perCharJitter?: boolean;
+      }
+    }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (typeof selector !== 'string' || selector.length === 0 || selector.length > 1000) {
+        return Promise.reject(new Error('Invalid selector: must be a non-empty string (max 1000 chars)'));
+      }
+      if (typeof text !== 'string' || text.length === 0 || text.length > 10000) {
+        return Promise.reject(new Error('Invalid text: must be a non-empty string (max 10000 chars)'));
+      }
+      // Validate typeOptions if provided
+      if (options?.typeOptions) {
+        const to = options.typeOptions;
+        if (to.minDelay !== undefined && (typeof to.minDelay !== 'number' || to.minDelay < 0 || to.minDelay > 1000)) {
+          return Promise.reject(new Error('typeOptions.minDelay must be a number between 0 and 1000'));
+        }
+        if (to.maxDelay !== undefined && (typeof to.maxDelay !== 'number' || to.maxDelay < 0 || to.maxDelay > 1000)) {
+          return Promise.reject(new Error('typeOptions.maxDelay must be a number between 0 and 1000'));
+        }
+      }
+      return ipcRenderer.invoke('playwright:type', windowId, selector, text, options);
+    },
+    screenshot: (windowId: string, options?: { fullPage?: boolean }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      return ipcRenderer.invoke('playwright:screenshot', windowId, options);
+    },
+    getDomSnapshot: (windowId: string, options?: { selector?: string }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (options?.selector !== undefined && (typeof options.selector !== 'string' || options.selector.length > 1000)) {
+        return Promise.reject(new Error('Invalid selector: must be a string (max 1000 chars) or undefined'));
+      }
+      return ipcRenderer.invoke('playwright:getDomSnapshot', windowId, options);
+    },
+    waitForPopup: (windowId: string, options?: { timeout?: number; popupSelector?: string }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (options?.timeout !== undefined && (typeof options.timeout !== 'number' || options.timeout < 1000 || options.timeout > 30000)) {
+        return Promise.reject(new Error('Invalid timeout: must be a number between 1000 and 30000'));
+      }
+      if (options?.popupSelector !== undefined && (typeof options.popupSelector !== 'string' || options.popupSelector.length > 1000)) {
+        return Promise.reject(new Error('Invalid popupSelector: must be a string (max 1000 chars) or undefined'));
+      }
+      return ipcRenderer.invoke('playwright:waitForPopup', windowId, options);
+    }
+  }
 
 }
 

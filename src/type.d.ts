@@ -98,7 +98,56 @@ declare global {
       saveAgentConfig: (config: AgentConfig) => Promise<{ success: boolean }>
       getMcpTools: () => Promise<{ success: boolean; data: McpToolSchema[] }>
       setMcpToolEnabled: (toolName: string, enabled: boolean) => Promise<{ success: boolean }>
+
+      // Human behavior settings APIs
+      getHumanBehaviorSettings: () => Promise<{ success: boolean; data: any }>
+      saveHumanBehaviorSettings: (settings: any) => Promise<{ success: boolean; error?: string }>
+      updateHumanBehaviorConfig: (settings: any) => Promise<{ success: boolean; error?: string }>
       reloadAgentConfig: () => Promise<{ success: boolean; data: AgentConfig }>
+
+      // Detail view control APIs
+      setDetailViewVisible: (visible: boolean) => Promise<{ success: boolean; visible: boolean }>
+      navigateDetailView: (url: string) => Promise<{ success: boolean; url: string }>
+      getCurrentUrl: () => Promise<string>
+      positionDetailView: (bounds: { x: number; y: number; width: number; height: number }) => Promise<{ success: boolean; bounds: { x: number; y: number; width: number; height: number } }>
+      onUrlChange: (callback: (url: string) => void) => void
+      getMainViewScreenshot: () => Promise<{ imageBase64: string; imageType: "image/jpeg" | "image/png" }>
+      showHistoryView: (screenshot: string) => Promise<{ success: boolean }>
+      hideHistoryView: () => Promise<{ success: boolean }>
+
+      // Playwright APIs
+      playwright: {
+        newPage: (windowId: string) => Promise<{ ok: boolean; data?: { windowId: string; url: string }; error?: { code: string; message: string } }>
+        closePage: (windowId: string) => Promise<{ ok: boolean; data?: null; error?: { code: string; message: string } }>
+        goto: (windowId: string, url: string) => Promise<{ ok: boolean; data?: { windowId: string; url: string }; error?: { code: string; message: string } }>
+        listElements: (windowId: string, selector?: string, options?: { limit?: number }) => Promise<{ ok: boolean; data?: Array<{ selector: string; innerText: string; boundingBox: { x: number; y: number; width: number; height: number } | null }>; error?: { code: string; message: string } }>
+        click: (windowId: string, selector: string, options?: { 
+          timeout?: number; 
+          humanized?: boolean; 
+          humanOptions?: {
+            steps?: number;
+            jitter?: number;
+            minDelay?: number;
+            maxDelay?: number;
+            moveStrategy?: 'bezier' | 'linear';
+            safety?: { maxSteps?: number; maxDurationMs?: number };
+            forceRaw?: boolean;
+          }
+        }) => Promise<{ ok: boolean; data?: null; error?: { code: string; message: string } }>
+        type: (windowId: string, selector: string, text: string, options?: { 
+          timeout?: number; 
+          humanized?: boolean;
+          typeOptions?: {
+            minDelay?: number;
+            maxDelay?: number;
+            clearFirst?: boolean;
+            perCharJitter?: boolean;
+          }
+        }) => Promise<{ ok: boolean; data?: null; error?: { code: string; message: string } }>
+        screenshot: (windowId: string, options?: { fullPage?: boolean }) => Promise<{ ok: boolean; data?: { imageBase64: string; width: number; height: number }; error?: { code: string; message: string } }>
+        getDomSnapshot: (windowId: string, options?: { selector?: string }) => Promise<{ ok: boolean; data?: string; error?: { code: string; message: string } }>
+        waitForPopup: (windowId: string, options?: { timeout?: number; popupSelector?: string }) => Promise<{ ok: boolean; data?: { found: boolean; selector?: string }; error?: { code: string; message: string } }>
+      }
     }
     // PDF.js type declarations
     pdfjsLib?: {

@@ -44,9 +44,32 @@ export function createView(rendererURL: string, preloadFileName: string, id?: st
     console.error('[View] Failed to register protocol:', error);
   }
 
+  // Set zoom factor immediately and on all navigation events
+  const setZoom = () => {
+    try {
+      mainView.webContents.setZoomFactor(0.7); // 130% zoom (30% zoom in)
+      console.log(`[View] Zoom factor set to 0.7 for ${preloadFileName}`);
+    } catch (error) {
+      console.error(`[View] Failed to set zoom factor:`, error);
+    }
+  };
+
+  // Set zoom immediately
+  setZoom();
+
+  // Set zoom on page load
   mainView.webContents.on("did-finish-load", () => {
     console.log(`${preloadFileName} did-finish-load`);
-    mainView.webContents.setZoomFactor(0.5)
+    setZoom();
+  });
+
+  // Set zoom on navigation
+  mainView.webContents.on('did-navigate', () => {
+    setZoom();
+  });
+
+  mainView.webContents.on('did-navigate-in-page', () => {
+    setZoom();
   });
 
   // Listen for network requests to capture real Xiaohongshu video URLs
@@ -78,6 +101,13 @@ export function createView(rendererURL: string, preloadFileName: string, id?: st
   });
 
   
+  // Prevent new windows from opening - keep everything in the same view
+  mainView.webContents.setWindowOpenHandler(({ url }) => {
+    console.log('[View] Blocking new window, loading in current view:', url);
+    mainView.webContents.loadURL(url);
+    return { action: 'deny' };
+  });
+
   mainView.webContents.loadURL(rendererURL)
 
   mainView.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {

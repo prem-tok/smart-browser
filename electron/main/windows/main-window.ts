@@ -14,7 +14,7 @@ export class MainWindowManager {
   private window?: BrowserWindow;
   private serverManager: ServerManager;
   private currentState: WindowStateInfo;
-  private readonly loadingTimeout = 30000; // 30 second timeout
+  private readonly loadingTimeout = 60000; // 60 second timeout (increased to allow more time for server startup)
 
   constructor(serverManager: ServerManager) {
     this.serverManager = serverManager;
@@ -63,20 +63,13 @@ export class MainWindowManager {
     try {
       console.log('Waiting for Next.js service...');
 
-      // Set timeout timer
-      const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error('Service startup timeout')), this.loadingTimeout);
-      });
-
-      // Wait for service to be ready
-      const serverPromise = this.serverManager.waitForServer(this.loadingTimeout);
-
-      const isServerReady = await Promise.race([serverPromise, timeoutPromise]);
+      // Wait for service to be ready (waitForServer handles its own timeout)
+      const isServerReady = await this.serverManager.waitForServer(this.loadingTimeout);
 
       if (isServerReady) {
         await this.loadApplication();
       } else {
-        throw new Error('Service startup failed');
+        throw new Error('Service startup timeout - server did not become ready within the timeout period');
       }
     } catch (error) {
       console.error('Service startup failed:', error);
@@ -93,10 +86,12 @@ export class MainWindowManager {
     }
 
     try {
-      const appURL = this.serverManager.getServerURL();
+      const baseURL = this.serverManager.getServerURL();
+      // Load /main page directly (browser view with embedded AI agent)
+      const appURL = `${baseURL}/main`;
       console.log('Loading application:', appURL);
 
-      this.updateState(WindowState.READY, 'Service ready, loading application...');
+      this.updateState(WindowState.READY, 'Service ready, loading browser...');
 
       await this.window.loadURL(appURL);
 
@@ -120,13 +115,17 @@ export class MainWindowManager {
     // Try to show error page or keep loading page but display error state
     try {
       // Can create an error page here, or update loading page state via JavaScript execution
+      const errorMessage = isDev
+        ? 'Next.js dev server is not running. Please start it with: pnpm run next (or use pnpm run dev to start both)'
+        : 'Please check network connection or restart application';
+      
       await this.window.webContents.executeJavaScript(`
         const mainText = document.querySelector('.main-text');
         const subText = document.querySelector('.sub-text');
         const progressFill = document.querySelector('.progress-fill');
 
         if (mainText) mainText.textContent = 'Service startup failed';
-        if (subText) subText.textContent = 'Please check network connection or restart application';
+        if (subText) subText.textContent = ${JSON.stringify(errorMessage)};
         if (progressFill) {
           progressFill.style.background = '#ef4444';
           progressFill.style.width = '100%';

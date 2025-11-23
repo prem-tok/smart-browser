@@ -6,7 +6,8 @@ import {
   ToolOutlined,
   SettingOutlined,
   ThunderboltOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,7 @@ export default function ToolboxPage() {
   const { t } = useTranslation('toolbox');
   const [agentConfigVisible, setAgentConfigVisible] = useState(false);
   const [scheduledTaskVisible, setScheduledTaskVisible] = useState(false);
+  const [humanBehaviorSettingsVisible, setHumanBehaviorSettingsVisible] = useState(false);
 
   const tools: ToolItem[] = [
     {
@@ -59,6 +61,18 @@ export default function ToolboxPage() {
       implemented: true,
       onClick: () => {
         setScheduledTaskVisible(true);
+      }
+    },
+    {
+      id: 'human-behavior',
+      title: t('human_behavior_title') || 'Human Behavior Settings',
+      description: t('human_behavior_desc') || 'Configure human-like automation behavior and randomness',
+      icon: <UserOutlined style={{ fontSize: '36px' }} />,
+      color: '#13c2c2',
+      gradient: 'linear-gradient(135deg, #13c2c2 0%, #08979c 100%)',
+      implemented: true,
+      onClick: () => {
+        router.push('/human-behavior-settings');
       }
     },
     {
@@ -125,7 +139,7 @@ export default function ToolboxPage() {
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
-          onClick={() => router.push('/home')}
+          onClick={() => router.push('/main')}
           style={{
             color: '#fff',
             fontSize: '14px',

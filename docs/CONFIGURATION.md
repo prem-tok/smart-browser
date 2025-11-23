@@ -32,8 +32,8 @@ The application supports the following AI providers:
 |----------|--------|-------------|
 | **DeepSeek** | deepseek-chat, deepseek-reasoner | [platform.deepseek.com](https://platform.deepseek.com/api_keys) |
 | **Qwen (Alibaba)** | qwen-max, qwen-plus, qwen-vl-max | [bailian.console.aliyun.com](https://bailian.console.aliyun.com/) |
-| **Google Gemini** | gemini-1.5-flash, gemini-2.0-flash, gemini-1.5-pro, etc. | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| **Anthropic Claude** | claude-3.7-sonnet, claude-3.5-sonnet, claude-3-opus, etc. | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| **Google Gemini** | gemini-2.5-flash (latest), gemini-2.5-pro, gemini-2.5-flash-lite, gemini-2.0-flash-exp, gemini-1.5-flash, etc. | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| **Anthropic Claude** | claude-3-7-sonnet-20250219 (latest), claude-3-5-sonnet, claude-3-5-haiku, etc. | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
 | **OpenRouter** | Multiple providers (Claude, GPT, Gemini, etc.) | [openrouter.ai](https://openrouter.ai/keys) |
 
 ## UI Configuration (Recommended)

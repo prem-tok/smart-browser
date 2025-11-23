@@ -94,15 +94,37 @@ export class TaskWindowManager {
         }
       })
 
+    // Set zoom factor for detailView
+    const setDetailViewZoom = () => {
+      try {
+        detailView.webContents.setZoomFactor(0.7); // 130% zoom (30% zoom in)
+        console.log('[TaskWindowManager] DetailView zoom factor set to 0.7');
+      } catch (error) {
+        console.error('[TaskWindowManager] Failed to set detailView zoom factor:', error);
+      }
+    };
+
+    // Set zoom immediately after detailView is created
+    setTimeout(() => {
+      setDetailViewZoom();
+    }, 100);
+
     // Listen for detail view URL changes
     detailView.webContents.on('did-navigate', (_event, url) => {
       console.log('detail view did-navigate:', url);
       taskWindow?.webContents.send('url-changed', url);
+      setDetailViewZoom(); // Set zoom on navigation
     });
 
     detailView.webContents.on('did-navigate-in-page', (_event, url) => {
       console.log('detail view did-navigate-in-page:', url);
       taskWindow?.webContents.send('url-changed', url);
+      setDetailViewZoom(); // Set zoom on in-page navigation
+    });
+
+    // Also set zoom when page finishes loading
+    detailView.webContents.on('did-finish-load', () => {
+      setDetailViewZoom();
     });
 
     // Create independent EkoService instance for this window

@@ -19,6 +19,109 @@ Built with [Next.js](https://nextjs.org) and [Electron](https://electronjs.org).
 ## Development Environment Configuration
 Node version: 20.19.3
 
+## Humanized Input (Playwright)
+
+The application includes a human-like cursor/input system for Playwright automation that provides smooth Bezier curve movements, natural jitter, and variable typing delays to make interactions appear more human-like.
+
+### Enabling/Disabling Humanized Input
+
+Humanized input is **enabled by default**. To disable it, set the environment variable:
+
+```bash
+# Disable humanized input
+export HUMANIZED_INPUT=false
+# or
+HUMANIZED_INPUT=0
+```
+
+### Configuration
+
+Humanized input can be configured per-action via options:
+
+```typescript
+// Humanized click with custom options
+await window.api.playwright.click('main', 'button.submit', {
+  humanized: true,
+  humanOptions: {
+    steps: 18,              // Number of path steps (1-50, default: 18)
+    jitter: 3,              // Pixel jitter amount (0-20, default: 3)
+    minDelay: 8,            // Minimum delay between steps in ms (default: 8)
+    maxDelay: 30,           // Maximum delay between steps in ms (default: 30)
+    moveStrategy: 'bezier', // 'bezier' (curved) or 'linear' (straight)
+    safety: {
+      maxSteps: 50,         // Maximum steps allowed (default: 50)
+      maxDurationMs: 5000   // Maximum duration in ms (default: 5000)
+    }
+  }
+});
+
+// Humanized typing with custom options
+await window.api.playwright.type('main', 'input[name="search"]', 'Hello World', {
+  humanized: true,
+  typeOptions: {
+    minDelay: 40,           // Minimum delay per character (default: 40ms)
+    maxDelay: 180,          // Maximum delay per character (default: 180ms)
+    clearFirst: true,       // Clear field before typing (default: true)
+    perCharJitter: true     // Add variation per character (default: true)
+  }
+});
+```
+
+### Recommended Defaults
+
+For most use cases, the default settings work well:
+- **Steps**: 12-24 (fewer = faster, more = smoother)
+- **Jitter**: 2-5px (adds natural variation)
+- **Delays**: 8-30ms for movement, 40-180ms for typing
+- **Strategy**: `bezier` for curved paths (more natural) or `linear` for straight paths (faster)
+
+### Testing
+
+Run the unit tests:
+```bash
+pnpm test tests/humanCursor.test.ts
+```
+
+Run integration tests (requires Playwright browser):
+```bash
+pnpm test tests/humanCursor.integration.test.ts
+```
+
+### Demo Component
+
+A full demo component is available at `src/renderer/humanDemo.tsx` that demonstrates:
+- Configurable humanized options
+- Side-by-side comparison of humanized vs raw clicks
+- Real-time element listing and interaction
+- Typing with variable delays
+
+### Important Notes
+
+⚠️ **Performance**: Humanized input is slower than raw automation (by design). Expect 200-500ms overhead per action.
+
+⚠️ **Headless Mode**: In headless browsers, the cursor is not visually visible, but movements still occur. This is acceptable for automation but won't show visual feedback.
+
+⚠️ **Ethics & Security**: 
+- This feature is designed for legitimate automation and testing
+- Do NOT use to bypass CAPTCHAs or evade bot detection
+- Respect website Terms of Service
+- Default rate limiting (10 actions/second) is enforced
+
+⚠️ **Packaging**: When building for distribution, ensure Playwright browsers are installed:
+```bash
+npx playwright install chromium
+```
+
+### Path Generation
+
+The system uses a self-contained Bezier curve generator (no external dependencies) that:
+- Creates smooth curved paths between start and end points
+- Adds Gaussian jitter for natural variation
+- Respects safety limits (max steps, max duration)
+- Supports both Bezier (curved) and linear (straight) strategies
+
+See `electron/humanCursor.ts` for implementation details.
+
 ## Getting Started
 
 ### 1. Configure API Keys
@@ -125,13 +228,15 @@ Customize AI agent behavior with custom prompts and manage MCP tools for enhance
 
 - **DeepSeek**: deepseek-chat, deepseek-reasoner
 - **Qwen (Alibaba Cloud)**: qwen-max, qwen-plus, qwen-vl-max
-- **Google Gemini**: gemini-1.5-flash, gemini-2.0-flash, gemini-1.5-pro, and more
-- **Anthropic Claude**: claude-3.7-sonnet, claude-3.5-sonnet, claude-3-opus, and more
+- **Google Gemini**: gemini-2.5-flash (latest), gemini-2.5-pro, gemini-2.5-flash-lite, gemini-2.0-flash-exp, gemini-1.5-flash, and more
+- **Anthropic Claude**: claude-3-7-sonnet-20250219 (latest), claude-3-5-sonnet, claude-3-5-haiku, and more
 - **OpenRouter**: Multiple providers (Claude, GPT, Gemini, Mistral, Cohere, etc.)
 
 ## Documentation
 
 - [Configuration Guide](./docs/CONFIGURATION.md) - Detailed API key setup instructions
+- [Playwright Configuration](./docs/PLAYWRIGHT_CONFIGURATION.md) - Browser automation settings and troubleshooting
+- [Browser Window Fix](./docs/BROWSER_WINDOW_FIX.md) - How we fixed the separate Chrome window issue
 
 ## Acknowledgements
 

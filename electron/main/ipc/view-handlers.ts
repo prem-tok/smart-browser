@@ -64,11 +64,38 @@ export function registerViewHandlers() {
       }
 
       // Load URL in detail view
-      await context.detailView.webContents.loadURL(url);
+      // Don't await - let it load asynchronously to avoid ERR_ABORTED errors
+      // when rapid navigation requests occur
+      context.detailView.webContents.loadURL(url).catch((error: any) => {
+        // ERR_ABORTED (-3) is expected when navigation is superseded by another navigation
+        if (error.message && !error.message.includes('ERR_ABORTED')) {
+          console.error('DetailView navigation error:', error);
+        }
+      });
 
       return { success: true, url };
     } catch (error: any) {
       console.error('IPC navigate-detail-view error:', error);
+      throw error;
+    }
+  });
+
+  // Position detail view to fill browser viewport
+  ipcMain.handle('position-detail-view', async (event, bounds: { x: number; y: number; width: number; height: number }) => {
+    try {
+      console.log('IPC position-detail-view received:', bounds);
+      const context = windowContextManager.getContext(event.sender.id);
+      if (!context || !context.detailView) {
+        throw new Error('DetailView not found for this window');
+      }
+
+      // Position detail view to fill the browser viewport
+      context.detailView.setBounds(bounds);
+      context.detailView.setVisible(true);
+
+      return { success: true, bounds };
+    } catch (error: any) {
+      console.error('IPC position-detail-view error:', error);
       throw error;
     }
   });

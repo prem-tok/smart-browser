@@ -1,0 +1,192 @@
+.timeline {
+  background: rgba(17, 24, 39, 0.95);
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  backdrop-filter: blur(10px);
+}
+
+.timelineHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.timelineTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.timelineList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timelineItem {
+  position: relative;
+  padding-left: 24px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.timelineItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.timelineItem.selected {
+  background: rgba(59, 130, 246, 0.2);
+  border-left: 2px solid #3b82f6;
+}
+
+.timelineConnector {
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.timelineItem:last-child .timelineConnector {
+  display: none;
+}
+
+.timelineContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timelineHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.timelineIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.timelineInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.timelineDescription {
+  font-size: 13px;
+  color: #ffffff;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineMeta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
+
+.timelineActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.statusIconCompleted {
+  color: #10a37f;
+  font-size: 14px;
+}
+
+.statusIconFailed {
+  color: #ef4444;
+  font-size: 14px;
+}
+
+.statusIconRunning {
+  color: #3b82f6;
+  font-size: 14px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.statusIconPending {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.undoButton {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
+.undoButton:hover {
+  color: #3b82f6;
+}
+
+.timelineError {
+  font-size: 11px;
+  color: #ef4444;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+}
+
+.emptyState {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  padding: 20px;
+}
+
+:global([data-theme='dark']) .timeline {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+:global([data-theme='dark']) .timelineTitle {
+  color: #111827;
+}
+
+:global([data-theme='dark']) .timelineDescription {
+  color: #111827;
+}
+
+:global([data-theme='dark']) .timelineMeta {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+:global([data-theme='dark']) .timelineItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+:global([data-theme='dark']) .timelineConnector {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+:global([data-theme='dark']) .undoButton {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+:global([data-theme='dark']) .emptyState {
+  color: rgba(0, 0, 0, 0.4);
+}
+

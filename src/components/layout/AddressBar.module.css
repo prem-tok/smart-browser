@@ -1,0 +1,302 @@
+.addressBarContainer {
+  flex: 1;
+  min-width: 0;
+  max-width: 600px;
+  position: relative;
+}
+
+.addressBarForm {
+  width: 100%;
+}
+
+.addressBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 40px;
+  background: var(--address-bar-bg, rgba(0, 0, 0, 0.04));
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.addressBar:hover {
+  background: var(--address-bar-bg-hover, rgba(0, 0, 0, 0.06));
+}
+
+.addressBar.focused {
+  background: var(--address-bar-bg-focus, #ffffff);
+  border-color: var(--primary-color, #10a37f);
+  box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.08), 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: scale(1.01);
+}
+
+:global([data-theme='dark']) .addressBar {
+  background: var(--address-bar-bg-dark, rgba(255, 255, 255, 0.06));
+}
+
+:global([data-theme='dark']) .addressBar:hover {
+  background: var(--address-bar-bg-hover-dark, rgba(255, 255, 255, 0.08));
+}
+
+:global([data-theme='dark']) .addressBar.focused {
+  background: var(--address-bar-bg-focus-dark, #2d2d2d);
+  box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.securityIcon {
+  font-size: 14px;
+  color: var(--success-color, #10a37f);
+  flex-shrink: 0;
+}
+
+.addressInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+}
+
+.addressInput :global(.ant-input) {
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.addressInput :global(.ant-input):focus {
+  box-shadow: none;
+}
+
+.addressBarIcon {
+  color: var(--text-secondary, #6b7280);
+  font-size: 14px;
+}
+
+.addressBarActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.addressBarButton,
+.pageActionButton {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.pageActionButton {
+  opacity: 0.7;
+}
+
+.pageActionButton:hover {
+  opacity: 1;
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+  border-radius: 4px;
+}
+
+/* Suggestions */
+.suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--suggestions-bg, rgba(255, 255, 255, 0.98));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  border-radius: 16px;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 8px 0;
+  transform-origin: top;
+}
+
+:global([data-theme='dark']) .suggestions {
+  background: var(--suggestions-bg-dark, rgba(26, 26, 26, 0.98));
+  border-color: var(--border-color-dark, rgba(255, 255, 255, 0.1));
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.suggestionItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  margin: 2px 8px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.suggestionItem:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+  transform: translateX(2px);
+}
+
+.suggestionItem.selected {
+  background: var(--hover-bg, rgba(16, 163, 127, 0.08));
+  border-left: 2px solid var(--primary-color, #10a37f);
+  padding-left: 14px;
+}
+
+:global([data-theme='dark']) .suggestionItem:hover {
+  background: var(--hover-bg-dark, rgba(255, 255, 255, 0.06));
+}
+
+:global([data-theme='dark']) .suggestionItem.selected {
+  background: var(--hover-bg-dark, rgba(16, 163, 127, 0.12));
+}
+
+.suggestionIconContainer {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.suggestionIcon {
+  color: var(--text-secondary, #6b7280);
+  font-size: 16px;
+}
+
+.suggestionFavicon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.suggestionContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestionTitle {
+  font-size: 14px;
+  color: var(--text-primary, #111827);
+  font-weight: 500;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+:global([data-theme='dark']) .suggestionTitle {
+  color: var(--text-primary-dark, #ffffff);
+}
+
+.suggestionDescription {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestionUrl {
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Droid Sans Mono', 'Source Code Pro', monospace;
+  letter-spacing: -0.02em;
+}
+
+.suggestionEnter {
+  color: var(--text-secondary, #6b7280);
+  font-size: 14px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.suggestionItem.selected .suggestionEnter {
+  opacity: 1;
+  color: var(--primary-color, #10a37f);
+}
+
+/* QR Code Modal */
+.qrCodeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+/* Scrollbar styling */
+.suggestions::-webkit-scrollbar {
+  width: 8px;
+}
+
+.suggestions::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.suggestions::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, rgba(0, 0, 0, 0.2));
+  border-radius: 4px;
+}
+
+.suggestions::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, rgba(0, 0, 0, 0.3));
+}
+
+:global([data-theme='dark']) .suggestions::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-dark, rgba(255, 255, 255, 0.2));
+}
+
+:global([data-theme='dark']) .suggestions::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-dark, rgba(255, 255, 255, 0.3));
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.suggestions {
+  animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .addressBarContainer {
+    max-width: 100%;
+  }
+  
+  .suggestions {
+    max-height: 300px;
+  }
+}
+

@@ -3,6 +3,7 @@ import { registerViewHandlers } from "./view-handlers";
 import { registerHistoryHandlers } from "./history-handlers";
 import { registerConfigHandlers } from "./config-handlers";
 import { registerAgentHandlers } from "./agent-handlers";
+import { registerPlaywrightHandlers } from "./playwright-handlers";
 
 /**
  * Register all IPC handlers
@@ -14,6 +15,7 @@ export function registerAllIpcHandlers() {
   registerHistoryHandlers();
   registerConfigHandlers();
   registerAgentHandlers();
+  registerPlaywrightHandlers();
 
   console.log('[IPC] All IPC handlers registered successfully');
 }
@@ -24,5 +26,6 @@ export {
   registerViewHandlers,
   registerHistoryHandlers,
   registerConfigHandlers,
-  registerAgentHandlers
+  registerAgentHandlers,
+  registerPlaywrightHandlers
 };

@@ -1,0 +1,37 @@
+.minimap {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 200px;
+  height: 150px;
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 10001;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.canvas {
+  width: 100%;
+  height: calc(100% - 20px);
+  border-radius: 4px;
+}
+
+.label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin-top: 4px;
+}
+
+:global([data-theme='dark']) .minimap {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+:global([data-theme='dark']) .label {
+  color: rgba(0, 0, 0, 0.6);
+}
+

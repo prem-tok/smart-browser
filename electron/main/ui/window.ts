@@ -21,14 +21,23 @@ export function createWindow(rendererURL: string) {
     },
     frame: process.platform !== 'darwin',
     titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
-    resizable: false,
+    resizable: true, // Allow resizing for proper layout
+    backgroundColor: '#ffffff', // Set background color
     webPreferences: {
       preload: preloadPath,
       contextIsolation: false,
       webSecurity: true, // Allow access to media devices like microphone
       zoomFactor: 1.0,
+      // Enable background throttling for better performance
+      backgroundThrottling: false,
     },
   });
+  // Prevent this window from opening new windows - keep everything embedded
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    console.log('[Window] Blocking new window, URL:', url);
+    return { action: 'deny' };
+  });
+
   console.log('Window created, loading URL...');
   win.loadURL(rendererURL).catch((err) => {
     console.log('Failed to load URL:', err);

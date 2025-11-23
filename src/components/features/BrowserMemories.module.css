@@ -1,0 +1,128 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.searchInput {
+  max-width: 100%;
+}
+
+.filterControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.memoriesList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.memoriesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.memoryCard {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.memoryCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.memoryContent {
+  cursor: pointer;
+}
+
+.memoryHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.favicon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.memoryTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.domain {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timestamp {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.keyFacts {
+  margin-bottom: 12px;
+}
+
+.fact {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .memoriesGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filterControls {
+    flex-direction: column;
+  }
+  
+  .filterControls > * {
+    width: 100%;
+  }
+}
+

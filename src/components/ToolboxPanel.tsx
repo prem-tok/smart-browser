@@ -5,8 +5,10 @@ import {
   ClockCircleOutlined,
   ToolOutlined,
   RobotOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  UserOutlined
 } from '@ant-design/icons';
+import { useRouter } from 'next/router';
 import AgentConfigModal from './AgentConfigModal';
 import { useScheduledTaskStore } from '@/stores/scheduled-task-store';
 
@@ -33,6 +35,7 @@ interface ToolboxPanelProps {
 export default function ToolboxPanel({ visible, onClose }: ToolboxPanelProps) {
   const [agentConfigVisible, setAgentConfigVisible] = useState(false);
   const { setShowListPanel } = useScheduledTaskStore();
+  const router = useRouter();
 
   const tools: ToolItem[] = [
     {
@@ -54,6 +57,19 @@ export default function ToolboxPanel({ visible, onClose }: ToolboxPanelProps) {
       color: '#52c41a',
       onClick: () => {
         setShowListPanel(true);
+        onClose();
+      }
+    },
+    {
+      id: 'human-behavior',
+      title: 'Human Behavior Settings',
+      description: 'Configure human-like automation behavior and randomness',
+      icon: <UserOutlined style={{ fontSize: '32px' }} />,
+      color: '#13c2c2',
+      onClick: () => {
+        if (router) {
+          router.push('/human-behavior-settings');
+        }
         onClose();
       }
     },

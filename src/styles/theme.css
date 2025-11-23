@@ -1,0 +1,100 @@
+/**
+ * Theme CSS Variables
+ * ChatGPT Atlas browser inspired theme
+ */
+
+:root {
+  /* Light Mode Colors */
+  --primary-color: #10a37f;
+  --primary-color-hover: #0d8f6f;
+  --primary-color-light: #e6f7f3;
+  
+  --sidebar-bg: #ffffff;
+  --nav-bg: #ffffff;
+  --address-bar-bg: #f3f4f6;
+  --address-bar-bg-focus: #ffffff;
+  --input-bg: #f3f4f6;
+  --input-bg-focus: #ffffff;
+  --input-container-bg: #ffffff;
+  
+  --tab-bg: rgba(0, 0, 0, 0.05);
+  --tab-bg-hover: rgba(0, 0, 0, 0.08);
+  --tab-bg-active: #ffffff;
+  
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  
+  --border-color: #e5e7eb;
+  --hover-bg: #f3f4f6;
+  --hover-bg-hover: #e5e7eb;
+  --active-bg: #e6f7f3;
+  
+  --message-user-bg: #10a37f;
+  --message-assistant-bg: #f3f4f6;
+  
+  --suggestions-bg: #ffffff;
+  --code-bg: #1e1e1e;
+  
+  --agent-panel-bg: #e6f7f3;
+  
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-track: transparent;
+  
+  --placeholder-bg: #d1d5db;
+  --danger-bg: #fee2e2;
+  --danger-color: #dc2626;
+  --success-color: #10a37f;
+}
+
+[data-theme='dark'] {
+  /* Dark Mode Colors */
+  --sidebar-bg-dark: #1a1a1a;
+  --nav-bg-dark: #1a1a1a;
+  --address-bar-bg-dark: #2d2d2d;
+  --address-bar-bg-focus-dark: #1a1a1a;
+  --input-bg-dark: #2d2d2d;
+  --input-bg-focus-dark: #1a1a1a;
+  --input-container-bg-dark: #1a1a1a;
+  
+  --tab-bg-dark: rgba(255, 255, 255, 0.05);
+  --tab-bg-hover-dark: rgba(255, 255, 255, 0.08);
+  --tab-bg-active-dark: #1a1a1a;
+  
+  --text-primary-dark: #ffffff;
+  --text-secondary-dark: #9ca3af;
+  --text-tertiary-dark: #6b7280;
+  
+  --border-color-dark: #2d2d2d;
+  --hover-bg-dark: #2d2d2d;
+  --hover-bg-hover-dark: #3d3d3d;
+  --active-bg-dark: #1a3a2e;
+  
+  --message-assistant-bg-dark: #2d2d2d;
+  
+  --suggestions-bg-dark: #1a1a1a;
+  
+  --agent-panel-bg-dark: #1a3a2e;
+  
+  --scrollbar-thumb: #4b5563;
+  --placeholder-bg-dark: #4b5563;
+}
+
+/* Global Transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus Styles */
+:focus-visible {
+  outline: 2px solid var(--primary-color, #10a37f);
+  outline-offset: 2px;
+}
+

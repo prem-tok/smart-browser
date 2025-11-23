@@ -32,8 +32,8 @@
 |--------|------|--------------|
 | **DeepSeek** | deepseek-chat, deepseek-reasoner | [platform.deepseek.com](https://platform.deepseek.com/api_keys) |
 | **Qwen (阿里云)** | qwen-max, qwen-plus, qwen-vl-max | [bailian.console.aliyun.com](https://bailian.console.aliyun.com/) |
-| **Google Gemini** | gemini-1.5-flash, gemini-2.0-flash, gemini-1.5-pro 等 | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| **Anthropic Claude** | claude-3.7-sonnet, claude-3.5-sonnet, claude-3-opus 等 | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| **Google Gemini** | gemini-2.5-flash (最新), gemini-2.5-pro, gemini-2.5-flash-lite, gemini-2.0-flash-exp, gemini-1.5-flash 等 | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| **Anthropic Claude** | claude-3-7-sonnet-20250219 (最新), claude-3-5-sonnet, claude-3-5-haiku 等 | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
 | **OpenRouter** | 多个提供商（Claude, GPT, Gemini 等） | [openrouter.ai](https://openrouter.ai/keys) |
 
 ## UI 配置（推荐）

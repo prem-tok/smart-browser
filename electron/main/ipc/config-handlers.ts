@@ -117,5 +117,40 @@ export function registerConfigHandlers() {
     }
   });
 
+  // Get human behavior settings
+  ipcMain.handle('config:get-human-behavior-settings', async () => {
+    try {
+      const settings = store.get('humanBehaviorSettings', null);
+      return { success: true, data: settings };
+    } catch (error: any) {
+      console.error('IPC config:get-human-behavior-settings error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Save human behavior settings
+  ipcMain.handle('config:save-human-behavior-settings', async (_event, settings: any) => {
+    try {
+      store.set('humanBehaviorSettings', settings);
+      console.log('[IPC] Human behavior settings saved');
+      return { success: true };
+    } catch (error: any) {
+      console.error('IPC config:save-human-behavior-settings error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Update human behavior config (for HumanAgent)
+  ipcMain.handle('config:update-human-behavior-config', async (_event, settings: any) => {
+    try {
+      store.set('humanBehaviorSettings', settings);
+      console.log('[IPC] Human behavior config updated');
+      return { success: true };
+    } catch (error: any) {
+      console.error('IPC config:update-human-behavior-config error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   console.log('[IPC] Configuration handlers registered');
 }

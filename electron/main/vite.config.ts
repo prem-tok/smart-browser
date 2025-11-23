@@ -42,6 +42,14 @@ export default defineConfig({
 
         // "mime", // NOTE: don't enable. not working if it's external.
         'electron-updater',
+        
+        // Playwright and its dependencies (must be external)
+        'playwright',
+        'playwright-core',
+        'chromium-bidi',
+        /^@playwright\/.*/,
+        /^playwright\/.*/,
+        /^playwright-core\/.*/,
       ],
       output: {
         dir: 'dist/electron',

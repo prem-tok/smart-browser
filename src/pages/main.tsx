@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import Header from '@/components/Header'
+import MainLayout from '@/components/layout/MainLayout'
 import { Input, Slider, Button, App } from 'antd'
 import { EkoResult, StreamCallbackMessage } from '@jarvis-agent/core/dist/types';
 import { MessageList } from '@/components/chat/MessageComponents';
@@ -1051,6 +1052,32 @@ export default function main() {
         }
     }, [antdMessage, showDetail]);
 
+    // Convert messages to RightSidebar format
+    const chatMessages = useMemo(() => {
+        return messages.map((msg, index) => ({
+            id: msg.id || `msg-${index}`,
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+            timestamp: new Date(msg.createdAt || Date.now()),
+        }));
+    }, [messages]);
+
+    // Check if new layout should be enabled (can be controlled via env or setting)
+    // Enable by default for now - can be disabled by setting NEXT_PUBLIC_USE_NEW_LAYOUT=false
+    const useNewLayout = process.env.NEXT_PUBLIC_USE_NEW_LAYOUT !== 'false';
+
+    // If using new layout, show browser-first layout with embedded AI
+    if (useNewLayout) {
+        return (
+            <MainLayout>
+                {/* Browser view is now primary - MainLayout handles everything */}
+                {/* AI agent is embedded as floating panel in BrowserViewport */}
+                {/* Old chat UI is accessible via embedded AI agent panel */}
+            </MainLayout>
+        );
+    }
+
+    // Original layout (fallback)
     return (
         <>
             <Header />
