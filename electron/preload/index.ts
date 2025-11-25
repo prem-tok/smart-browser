@@ -51,10 +51,10 @@ const api = {
   // Model configuration APIs
   getUserModelConfigs: () => ipcRenderer.invoke('config:get-user-configs'),
   saveUserModelConfigs: (configs: any) => ipcRenderer.invoke('config:save-user-configs', configs),
-  getModelConfig: (provider: 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openrouter') => ipcRenderer.invoke('config:get-model-config', provider),
-  getApiKeySource: (provider: 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openrouter') => ipcRenderer.invoke('config:get-api-key-source', provider),
+  getModelConfig: (provider: 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openai' | 'openrouter') => ipcRenderer.invoke('config:get-model-config', provider),
+  getApiKeySource: (provider: 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openai' | 'openrouter') => ipcRenderer.invoke('config:get-api-key-source', provider),
   getSelectedProvider: () => ipcRenderer.invoke('config:get-selected-provider'),
-  setSelectedProvider: (provider: 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openrouter') => ipcRenderer.invoke('config:set-selected-provider', provider),
+  setSelectedProvider: (provider: 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openai' | 'openrouter') => ipcRenderer.invoke('config:set-selected-provider', provider),
 
   // Agent configuration APIs
   getAgentConfig: () => ipcRenderer.invoke('agent:get-config'),
@@ -228,6 +228,55 @@ const api = {
         return Promise.reject(new Error('Invalid popupSelector: must be a string (max 1000 chars) or undefined'));
       }
       return ipcRenderer.invoke('playwright:waitForPopup', windowId, options);
+    },
+    screenshotAndHtml: (windowId: string, options?: { fullPage?: boolean }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      return ipcRenderer.invoke('playwright:screenshotAndHtml', windowId, options);
+    },
+    clickElementByIndex: (windowId: string, index: number, options?: { 
+      timeout?: number; 
+      humanized?: boolean; 
+      humanOptions?: {
+        steps?: number;
+        jitter?: number;
+        minDelay?: number;
+        maxDelay?: number;
+        moveStrategy?: 'bezier' | 'linear';
+        safety?: { maxSteps?: number; maxDurationMs?: number };
+        forceRaw?: boolean;
+      }
+    }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (typeof index !== 'number' || index < 0 || !Number.isInteger(index)) {
+        return Promise.reject(new Error('Invalid index: must be a non-negative integer'));
+      }
+      return ipcRenderer.invoke('playwright:clickElementByIndex', windowId, index, options);
+    },
+    inputTextByIndex: (windowId: string, index: number, text: string, options?: { 
+      timeout?: number; 
+      humanized?: boolean;
+      typeOptions?: {
+        minDelay?: number;
+        maxDelay?: number;
+        clearFirst?: boolean;
+        perCharJitter?: boolean;
+      };
+      enter?: boolean;
+    }) => {
+      if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+        return Promise.reject(new Error('Invalid windowId: must be a non-empty string (max 100 chars)'));
+      }
+      if (typeof index !== 'number' || index < 0 || !Number.isInteger(index)) {
+        return Promise.reject(new Error('Invalid index: must be a non-negative integer'));
+      }
+      if (typeof text !== 'string' || text.length === 0 || text.length > 10000) {
+        return Promise.reject(new Error('Invalid text: must be a non-empty string (max 10000 chars)'));
+      }
+      return ipcRenderer.invoke('playwright:inputTextByIndex', windowId, index, text, options);
     }
   }
 

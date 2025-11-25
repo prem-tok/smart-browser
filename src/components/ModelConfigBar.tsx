@@ -12,6 +12,7 @@ const PROVIDERS = [
   { value: 'qwen', label: 'Qwen (Alibaba)', getKeyUrl: 'https://bailian.console.aliyun.com/' },
   { value: 'google', label: 'Google Gemini', getKeyUrl: 'https://aistudio.google.com/app/apikey' },
   { value: 'anthropic', label: 'Anthropic', getKeyUrl: 'https://console.anthropic.com/settings/keys' },
+  { value: 'openai', label: 'OpenAI', getKeyUrl: 'https://platform.openai.com/api-keys' },
   { value: 'openrouter', label: 'OpenRouter', getKeyUrl: 'https://openrouter.ai/keys' },
 ];
 
@@ -53,6 +54,17 @@ const MODELS: Record<string, string[]> = {
     'claude-3-5-haiku-latest',
     'claude-3-5-sonnet-20240620',
   ],
+  openai: [
+    'gpt-5',
+    'gpt-4.1',
+    'gpt-4o',
+    'gpt-4o-mini',
+    'gpt-4-turbo',
+    'gpt-4',
+    'gpt-3.5-turbo',
+    'o1-preview',
+    'o1-mini',
+  ],
   qwen: [
     'qwen-max',
     'qwen-plus',
@@ -60,7 +72,7 @@ const MODELS: Record<string, string[]> = {
   ],
 };
 
-type ProviderType = 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openrouter';
+type ProviderType = 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openai' | 'openrouter';
 
 export const ModelConfigBar: React.FC = () => {
   const { t } = useTranslation('modelConfig');

@@ -29,6 +29,11 @@ import { useLayoutStore } from '@/stores/layoutStore';
 import { useTaskManager } from '@/hooks/useTaskManager';
 import { ModelConfigBar } from '@/components/ModelConfigBar';
 import type { DisplayMessage } from '@/models';
+import { MessageProcessor } from '@/utils/messageTransform';
+import type { StreamCallbackMessage } from '@jarvis-agent/core/dist/types';
+import { uuidv4 } from '@/common/utils';
+import { MessageList } from '@/components/chat/MessageComponents';
+import type { HumanResponseMessage } from '@/models/human-interaction';
 import styles from './LeftAgentSidebar.module.css';
 
 const { TextArea } = Input;
@@ -38,59 +43,150 @@ const getMessageContent = (message: DisplayMessage): string => {
   if (message.type === 'user') {
     return message.content || '';
   } else if (message.type === 'agent_group') {
-    // Extract text from agent group messages - get all text messages
+    const agentMsg = message as any;
+    const agentStatus = agentMsg.status;
+    const isCompleted = agentStatus === 'completed' || agentStatus === 'done';
+    
+    // Get all tool messages
+    const toolMessages = message.messages?.filter(m => m.type === 'tool') || [];
     const textMessages = message.messages?.filter(m => m.type === 'text') || [];
+    
+    // Priority 1: Agent-level result (final summary)
+    if (message.result) {
+      const result = message.result;
+      let resultText = '';
+      
+      if (typeof result === 'string') {
+        resultText = result;
+      } else if (typeof result === 'object' && result !== null) {
+        const resultObj = result as Record<string, any>;
+        if (resultObj.text && typeof resultObj.text === 'string') {
+          resultText = resultObj.text;
+        } else if (resultObj.content && typeof resultObj.content === 'string') {
+          resultText = resultObj.content;
+        } else if (resultObj.message && typeof resultObj.message === 'string') {
+          resultText = resultObj.message;
+        } else {
+          resultText = JSON.stringify(result, null, 2);
+        }
+      } else {
+        resultText = String(result);
+      }
+      
+      // If we have tool messages, append them as details
+      if (toolMessages.length > 0) {
+        const toolList = toolMessages
+          .map((tool: any) => {
+            const name = tool.toolName || 'unknown';
+            const status = tool.status === 'completed' ? '✓' : tool.status === 'running' ? '⏳' : '';
+            return `  • ${name} ${status}`;
+          })
+          .join('\n');
+        return `${resultText}\n\nActions:\n${toolList}`;
+      }
+      
+      return resultText;
+    }
+    
+    // Priority 2: Text messages from agent
     if (textMessages.length > 0) {
-      // Combine all text messages
       const contents = textMessages
         .map(m => (m as any).content)
         .filter(c => c && typeof c === 'string')
         .join('\n');
-      if (contents) return contents;
-    }
-    
-    // Check for result
-    if (message.result) {
-      const result = message.result;
-      if (typeof result === 'string') return result;
-      if (typeof result === 'object' && result !== null) {
-        // Try to extract meaningful text from result object
-        if (result.text) return result.text;
-        if (result.content) return result.content;
-        if (result.message) return result.message;
-        // Fallback to JSON string
-        return JSON.stringify(result, null, 2);
-      }
-      return String(result);
-    }
-    
-    // Try to get result from last tool message
-    const lastMessage = message.messages?.[message.messages.length - 1];
-    if (lastMessage && lastMessage.type === 'tool') {
-      const toolResult = (lastMessage as any).result;
-      if (toolResult) {
-        if (typeof toolResult === 'string') return toolResult;
-        if (typeof toolResult === 'object' && toolResult !== null) {
-          if (toolResult.text) return toolResult.text;
-          if (toolResult.content) return toolResult.content;
+      if (contents) {
+        // Append tool actions if available
+        if (toolMessages.length > 0) {
+          const toolList = toolMessages
+            .map((tool: any) => {
+              const name = tool.toolName || 'unknown';
+              const status = tool.status === 'completed' ? '✓' : tool.status === 'running' ? '⏳' : '';
+              return `  • ${name} ${status}`;
+            })
+            .join('\n');
+          return `${contents}\n\nActions:\n${toolList}`;
         }
+        return contents;
       }
     }
     
-    // If we have messages but no text, show a summary
+    // Priority 3: Tool messages with results
+    if (toolMessages.length > 0) {
+      const toolDescriptions: string[] = [];
+      
+      for (const toolMsg of toolMessages) {
+        const tool = toolMsg as any;
+        const toolName = tool.toolName || 'unknown';
+        const toolStatus = tool.status || 'unknown';
+        const toolResult = tool.result;
+        
+        // Format tool action
+        let description = `• ${toolName}`;
+        
+        // Add params if available (simplified)
+        if (tool.params) {
+          try {
+            const paramsStr = typeof tool.params === 'string' 
+              ? tool.params 
+              : JSON.stringify(tool.params);
+            if (paramsStr.length <= 80) {
+              description += ` (${paramsStr})`;
+            }
+          } catch (e) {
+            // Ignore param formatting errors
+          }
+        }
+        
+        // Add result if available
+      if (toolResult) {
+          let resultStr = '';
+          if (typeof toolResult === 'string') {
+            resultStr = toolResult.length > 150 ? toolResult.substring(0, 150) + '...' : toolResult;
+          } else if (typeof toolResult === 'object' && toolResult !== null) {
+            if (toolResult.text) resultStr = toolResult.text;
+            else if (toolResult.content) resultStr = toolResult.content;
+            else if (toolResult.message) resultStr = toolResult.message;
+            else if (toolResult.success !== undefined) {
+              resultStr = toolResult.success ? 'Success' : 'Failed';
+            } else {
+              resultStr = 'Completed';
+            }
+            if (resultStr.length > 150) resultStr = resultStr.substring(0, 150) + '...';
+          } else {
+            resultStr = String(toolResult);
+          }
+          
+          if (resultStr) {
+            description += ` → ${resultStr}`;
+          }
+        } else if (toolStatus === 'completed') {
+          description += ' ✓';
+        } else if (toolStatus === 'running') {
+          description += ' ⏳';
+        }
+        
+        toolDescriptions.push(description);
+      }
+      
+      return toolDescriptions.join('\n');
+    }
+    
+    // Fallback: Generic message
     if (message.messages && message.messages.length > 0) {
       return `Agent ${message.agentName} executed ${message.messages.length} action(s)`;
     }
     
     return `Agent ${message.agentName} is working...`;
   } else if (message.type === 'workflow') {
+    // Only return content if there's actual thinking or workflow thought
     if (message.thinking?.text) {
       return message.thinking.text;
     }
     if (message.workflow?.thought) {
       return message.workflow.thought;
     }
-    return 'Workflow planning...';
+    // Return empty string for placeholder workflow messages - they'll be filtered out
+    return '';
   }
   return '';
 };
@@ -127,108 +223,170 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const ekoRequestRef = useRef<Promise<any> | null>(null);
+  // Message processor for handling stream messages (same as main.tsx)
+  const messageProcessorRef = useRef(new MessageProcessor());
+  // Task ID reference (same as main.tsx)
+  const taskIdRef = useRef<string | null>(currentTaskId);
+  // Execution ID reference (same as main.tsx)
+  const executionIdRef = useRef<string>('');
 
-  // Get messages - use current task messages, or fallback to most recent task
+  // Get messages - use current task messages
+  // This ensures we only show messages for the currently selected task
   const displayMessages = useMemo(() => {
+    if (!currentTaskId) {
+      return [];
+    }
+    
+    // Find the current task in the tasks array
+    const currentTaskFromStore = tasks.find(t => t.id === currentTaskId);
+    
+    // Use messages from the task in store if available, otherwise use messages from useTaskManager
+    // The useTaskManager's messages are computed from currentTask, which is also based on currentTaskId
+    if (currentTaskFromStore && currentTaskFromStore.messages) {
+      return currentTaskFromStore.messages;
+    }
+    
+    // Fallback to messages from useTaskManager (which is currentTask?.messages || [])
+    // This handles the case where the task exists but messages haven't been set yet
     if (messages && messages.length > 0) {
       return messages;
     }
-    // If no current task messages, try to get from most recent task
-    if (tasks.length > 0) {
-      const mostRecentTask = tasks
-        .filter(t => t.messages && t.messages.length > 0)
-        .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0))[0];
-      return mostRecentTask?.messages || [];
-    }
+    
+    // If no messages found, return empty array
     return [];
-  }, [messages, tasks]);
+  }, [messages, tasks, currentTaskId, currentTask]);
+
+  // Track streaming messages to avoid duplicates
+  const streamingMessageRef = useRef<Map<string, DisplayMessage>>(new Map());
+
+  // Synchronize taskIdRef with currentTaskId (same as main.tsx)
+  useEffect(() => {
+    taskIdRef.current = currentTaskId;
+  }, [currentTaskId]);
 
   // Listen to EkoService stream messages for real-time updates
+  // Use the same MessageProcessor approach as main.tsx
   useEffect(() => {
     if (typeof window === 'undefined' || !window.api || !(window.api as any).onEkoStreamMessage) {
       return;
     }
 
-    const handleStreamMessage = (streamMessage: any) => {
-      console.log('[LeftAgentSidebar] Stream message received:', streamMessage);
+    const handleStreamMessage = (streamMessage: StreamCallbackMessage) => {
+      // Use MessageProcessor to process stream messages (same as main.tsx)
+      const updatedMessages = messageProcessorRef.current.processStreamMessage(streamMessage);
 
-      // Handle workflow messages (task planning)
-      if (streamMessage.type === 'workflow' && streamMessage.workflow) {
-        const workflow = streamMessage.workflow;
-        const taskId = workflow.taskId || currentTaskId;
+      // Handle task ID replacement: temporary task -> real task (same as main.tsx)
+      const isCurrentTaskTemporary = taskIdRef.current?.startsWith('temp-');
+      const hasRealTaskId = streamMessage.taskId && !streamMessage.taskId.startsWith('temp-');
 
-        if (taskId) {
-          // Create or update task with workflow
-          if (!currentTask || currentTask.id !== taskId) {
-            createTask(taskId, {
-              name: workflow.name || `Task ${taskId.slice(0, 8)}`,
-              status: 'running',
-            });
-            setCurrentTaskId(taskId);
+      if (isCurrentTaskTemporary && hasRealTaskId && taskIdRef.current) {
+        const tempTaskId = taskIdRef.current;
+        const realTaskId = streamMessage.taskId;
+
+        // Replace task ID
+        replaceTaskId(tempTaskId, realTaskId);
+        setCurrentTaskId(realTaskId);
+        taskIdRef.current = realTaskId;
+
+        // Update task with new workflow info if available
+        if (streamMessage.type === 'workflow' && streamMessage.workflow?.name) {
+          updateTask(realTaskId, {
+            name: streamMessage.workflow.name,
+            workflow: streamMessage.workflow,
+            messages: updatedMessages
+          });
+        } else {
+          updateTask(realTaskId, { messages: updatedMessages });
+        }
+
+        // Set status for new task
+        setCurrentTaskStatus('running');
+        setIsTaskRunning(true);
+        return; // Exit early, task ID has been replaced
+      }
+
+      // Set task ID (if not already set and not temporary)
+      if (streamMessage.taskId && !taskIdRef.current && !streamMessage.taskId.startsWith('temp-')) {
+        setCurrentTaskId(streamMessage.taskId);
+        taskIdRef.current = streamMessage.taskId;
+        setCurrentTaskStatus('running');
+        setIsTaskRunning(true);
+      }
+
+      // Update or create task (same as main.tsx)
+      const taskIdToUpdate = streamMessage.taskId || taskIdRef.current;
+      if (taskIdToUpdate) {
+        // Ensure task exists - create it if it doesn't exist
+        const taskExists = tasks.some(t => t.id === taskIdToUpdate);
+        if (!taskExists && !taskIdToUpdate.startsWith('temp-')) {
+          const workflowInfo = (streamMessage as any).workflow;
+          createTask(taskIdToUpdate, {
+            name: workflowInfo?.name || `Task ${taskIdToUpdate.slice(0, 8)}`,
+            status: 'running',
+            messages: updatedMessages,
+            workflow: workflowInfo
+          });
+        } else {
+          const updates: Partial<any> = {
+            messages: updatedMessages
+          };
+
+          if (streamMessage.type === 'workflow' && streamMessage.workflow?.name) {
+            updates.name = streamMessage.workflow.name;
+            updates.workflow = streamMessage.workflow;
+            // Set status when workflow starts
+            setCurrentTaskStatus('running');
+            setIsTaskRunning(true);
           }
 
-          // Add workflow message
-          const workflowMessage: DisplayMessage = {
-            id: `workflow-${Date.now()}`,
-            type: 'workflow',
-            workflow: workflow,
-            thinking: streamMessage.thinking,
-            timestamp: new Date(),
-          };
+          // For error messages, also update task status
+          if (streamMessage.type === 'error') {
+            updates.status = 'error';
+            setIsTaskRunning(false);
+            setCurrentTaskStatus('error');
+          }
 
-          updateMessages(taskId, [
-            ...(currentTask?.messages || []),
-            workflowMessage,
-          ]);
+          // Always update task (will only work if task exists)
+          updateTask(taskIdToUpdate, updates);
         }
       }
 
-      // Handle agent group messages
-      if (streamMessage.type === 'agent_group' && streamMessage.agentName) {
-        const taskId = currentTaskId || streamMessage.taskId;
+      // Handle specific message types for UI state updates
+      if (streamMessage.type === 'finish') {
+        const taskId = streamMessage.taskId || taskIdRef.current;
         if (taskId) {
-          const agentMessage: DisplayMessage = {
-            id: `agent-${Date.now()}`,
-            type: 'agent_group',
-            agentName: streamMessage.agentName,
-            messages: streamMessage.messages || [],
-            result: streamMessage.result,
-            timestamp: new Date(),
-          };
-
-          updateMessages(taskId, [
-            ...(currentTask?.messages || []),
-            agentMessage,
-          ]);
+          setIsTaskRunning(false);
+          setCurrentTaskStatus('done');
+          updateTask(taskId, {
+            status: 'done',
+          });
         }
       }
 
-      // Handle task ID replacement (when temp task becomes real task)
-      if (streamMessage.type === 'workflow' && streamMessage.workflow?.taskId) {
-        const newTaskId = streamMessage.workflow.taskId;
-        if (currentTaskId && currentTaskId.startsWith('temp-') && newTaskId !== currentTaskId) {
-          replaceTaskId(currentTaskId, newTaskId);
-          setCurrentTaskId(newTaskId);
+      // Handle agent_result messages for final status
+      if (streamMessage.type === 'agent_result') {
+        const agentNode = streamMessage.agentNode;
+        const taskId = streamMessage.taskId || taskIdRef.current;
+        
+        // Check if agent is done (status can be 'done' or 'completed' as string)
+        const agentStatus = agentNode?.status as string;
+        if (agentStatus === 'done' || agentStatus === 'completed') {
+          setIsTaskRunning(false);
+          setCurrentTaskStatus('done');
+          if (taskId) {
+            updateTask(taskId, {
+              status: 'done',
+            });
+          }
+        } else if (agentStatus === 'error') {
+          setIsTaskRunning(false);
+          setCurrentTaskStatus('error');
+          if (taskId) {
+            updateTask(taskId, {
+              status: 'error',
+            });
+          }
         }
-      }
-
-      // Handle task completion
-      if (streamMessage.type === 'finish' && currentTaskId) {
-        setIsTaskRunning(false);
-        setCurrentTaskStatus(streamMessage.finishReason || 'completed');
-        updateTask(currentTaskId, {
-          status: streamMessage.finishReason || 'completed',
-        });
-      }
-
-      // Handle errors
-      if (streamMessage.type === 'error' && currentTaskId) {
-        setIsTaskRunning(false);
-        setCurrentTaskStatus('error');
-        updateTask(currentTaskId, {
-          status: 'error',
-        });
-        antdMessage.error(streamMessage.error || 'Task failed');
       }
     };
 
@@ -243,26 +401,92 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
         (window.api as any).removeAllListeners?.('eko-stream-message');
       }
     };
-  }, [currentTaskId, currentTask, createTask, updateTask, updateMessages, replaceTaskId, setCurrentTaskId]);
+  }, [tasks, createTask, updateTask, updateMessages, replaceTaskId, setCurrentTaskId, setIsTaskRunning, setCurrentTaskStatus]);
 
   // Determine agent mode state from task status
-  const agentModeActive = isTaskRunning || (currentTask?.status === 'running');
+  // Priority: currentTaskStatus (immediate state) > currentTask?.status (from store)
+  // Only show as active if task is actually running, not if it's done/error
+  const taskStatus = currentTaskStatus || currentTask?.status;
+  const isTaskCompleted = taskStatus === 'done' || taskStatus === 'error';
+  const agentModeActive = !isTaskCompleted && (isTaskRunning || taskStatus === 'running');
   const agentModePaused = currentTaskStatus === 'paused';
 
-  // Format messages for display - filter out empty messages
+  // Sync currentTaskStatus with task store when task changes
+  useEffect(() => {
+    if (currentTask?.status && currentTask.status !== currentTaskStatus) {
+      // If task status in store is 'done' or 'error', sync it to currentTaskStatus
+      if (currentTask.status === 'done' || currentTask.status === 'error') {
+        setCurrentTaskStatus(currentTask.status);
+        setIsTaskRunning(false);
+      } else if (currentTask.status === 'running' && !currentTaskStatus) {
+        // If task is running but currentTaskStatus is empty, set it
+        setCurrentTaskStatus('running');
+        setIsTaskRunning(true);
+      }
+    }
+  }, [currentTask?.status, currentTaskStatus]);
+
+  // Format messages for display - filter out empty messages and deduplicate
   const formattedMessages = useMemo(() => {
-    return displayMessages
-      .map((message) => {
-        const content = getMessageContent(message);
-        return {
+    const seen = new Set<string>();
+    const uniqueMessages: Array<{
+      id: string;
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: Date;
+      isStreaming?: boolean;
+      messageType?: string;
+    }> = [];
+
+    // Check if task is completed - use currentTaskStatus first (immediate state)
+    const taskStatus = currentTaskStatus || currentTask?.status;
+    const taskCompleted = taskStatus === 'done' || taskStatus === 'error';
+
+    // Process messages in reverse to keep latest version of duplicates
+    const reversedMessages = [...displayMessages].reverse();
+    
+    // Check if we have agent_group messages (actual execution results)
+    const hasAgentMessages = displayMessages.some(m => m.type === 'agent_group');
+    
+    for (const message of reversedMessages) {
+      // If task is completed, always skip ALL workflow messages (they're just planning)
+      if (taskCompleted && message.type === 'workflow') {
+        continue;
+      }
+      
+      // Also skip workflow messages if we have agent messages (planning is done, execution started)
+      if (message.type === 'workflow' && hasAgentMessages) {
+        // Skip workflow messages once agent execution has started
+        continue;
+      }
+      
+      const content = getMessageContent(message);
+      const role = getMessageRole(message);
+      
+      // Skip empty messages
+      if (!content || content.trim().length === 0) {
+        continue;
+      }
+      
+      // Create a key for deduplication (id + first 50 chars of content)
+      const dedupeKey = `${message.id}-${content.substring(0, 50)}`;
+      
+      // Only add if we haven't seen this exact message
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        uniqueMessages.unshift({
           id: message.id,
-          role: getMessageRole(message),
+          role,
           content,
           timestamp: message.timestamp || new Date(),
-        };
-      })
-      .filter((msg) => msg.content && msg.content.trim().length > 0); // Filter out empty messages
-  }, [displayMessages]);
+          isStreaming: message.type === 'workflow' && !message.workflow?.thought && !taskCompleted,
+          messageType: message.type,
+        });
+      }
+    }
+
+    return uniqueMessages;
+  }, [displayMessages, currentTask?.status, currentTaskStatus]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -279,92 +503,111 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
     setIsTaskRunning(true);
 
     try {
-      // Check if we have a current task
+      // Check if we should create a new task:
+      // 1. No current task ID
+      // 2. Current task ID is temporary
+      // 3. Current task is completed (done, error, or any finish reason like 'tool-calls')
+      const currentTaskStatusCheck = currentTaskStatus || currentTask?.status;
+      // Task is completed if status is 'done', 'error', or if task is not running
+      const isTaskCompleted = currentTaskStatusCheck === 'done' || 
+                              currentTaskStatusCheck === 'error' || 
+                              (!isTaskRunning && currentTaskStatusCheck && currentTaskStatusCheck !== 'running');
       const isTemporaryTask = !currentTaskId || currentTaskId.startsWith('temp-');
+      const shouldCreateNewTask = isTemporaryTask || isTaskCompleted;
 
-      if (isTemporaryTask) {
-        // Create new temporary task ID
-        const tempTaskId = `temp-${Date.now()}`;
+      if (shouldCreateNewTask) {
+        // Reset status for new task
+        setCurrentTaskStatus('');
+        
+        // Generate new execution ID for each task execution (same as main.tsx)
+        const newExecutionId = uuidv4();
+        executionIdRef.current = newExecutionId;
+        messageProcessorRef.current.setExecutionId(newExecutionId);
+        
+        // Create new temporary task ID (same as main.tsx)
+        const tempTaskId = `temp-${newExecutionId}`;
+        
+        // Set taskIdRef and currentTaskId FIRST to ensure messages are associated with the new task
+        taskIdRef.current = tempTaskId;
+        setCurrentTaskId(tempTaskId);
+        setCurrentTaskStatus('running');
+        setIsTaskRunning(true);
+        
+        // Use MessageProcessor to add user message (same as main.tsx)
+        const updatedMessages = messageProcessorRef.current.addUserMessage(message.trim());
+        
+        // Create temporary task with user message (same as main.tsx)
         createTask(tempTaskId, {
-          name: `Task ${tempTaskId.slice(0, 8)}`,
+          name: 'Processing...',
+          messages: updatedMessages,
           status: 'running',
         });
-        setCurrentTaskId(tempTaskId);
 
-        // Add user message
-        const userMessage: DisplayMessage = {
-          id: `user-${Date.now()}`,
-          type: 'user',
-          content: message,
-          timestamp: new Date(),
-        };
-        updateMessages(tempTaskId, [userMessage]);
-
-        // Cancel any existing request
-        if (ekoRequestRef.current && currentTaskId) {
+        // Cancel any existing request (same as main.tsx)
+        if (ekoRequestRef.current && taskIdRef.current) {
           try {
-            await (window.api as any)?.ekoCancelTask?.(currentTaskId);
+            await (window.api as any)?.ekoCancelTask?.(taskIdRef.current);
             await ekoRequestRef.current;
           } catch (error) {
             console.warn('Failed to cancel previous task:', error);
           }
         }
 
-        // Run new task via EkoService
+        // Run new task via EkoService (same as main.tsx)
+        let result: any = null;
         if (onSendMessage) {
           await onSendMessage(message);
         } else if (typeof window !== 'undefined' && (window.api as any)?.ekoRun) {
-          const request = (window.api as any).ekoRun(message);
+          const request = (window.api as any).ekoRun(message.trim());
           ekoRequestRef.current = request;
-          const result = await request;
+          result = await request;
           ekoRequestRef.current = null;
 
-          // Update task status based on result
-          if (result && result.stopReason) {
-            setIsTaskRunning(false);
-            setCurrentTaskStatus(result.stopReason);
-            const finalTaskId = currentTaskId || tempTaskId;
-            updateTask(finalTaskId, {
-              status: result.stopReason,
+          // Update task status based on result (same as main.tsx)
+          if (result && taskIdRef.current) {
+            updateTask(taskIdRef.current, {
+              status: result.stopReason
             });
           }
         }
       } else {
-        // Modify existing task
-        const userMessage: DisplayMessage = {
-          id: `user-${Date.now()}`,
-          type: 'user',
-          content: message,
-          timestamp: new Date(),
-        };
-        updateMessages(currentTaskId, [
-          ...(currentTask?.messages || []),
-          userMessage,
-        ]);
+        // Modify existing task (same as main.tsx)
+        // Restore existing messages to MessageProcessor (same as main.tsx)
+        const taskFromStore = tasks.find(t => t.id === taskIdRef.current);
+        const existingTaskMessages = taskFromStore?.messages || currentTask?.messages || [];
+        if (existingTaskMessages.length > 0) {
+          messageProcessorRef.current.setMessages(existingTaskMessages);
+        }
+        
+        // Use MessageProcessor to add user message (same as main.tsx)
+        const updatedMessages = messageProcessorRef.current.addUserMessage(message.trim());
+        updateMessages(taskIdRef.current!, updatedMessages);
+        
+        // Set existing task to running state (same as main.tsx)
+        updateTask(taskIdRef.current!, { status: 'running' });
 
-        // Cancel any existing request
+        // Cancel any existing request (same as main.tsx)
         if (ekoRequestRef.current) {
           try {
-            await (window.api as any)?.ekoCancelTask?.(currentTaskId);
+            await (window.api as any)?.ekoCancelTask?.(taskIdRef.current);
             await ekoRequestRef.current;
           } catch (error) {
             console.warn('Failed to cancel previous task:', error);
           }
         }
 
-        // Modify task via EkoService
+        // Modify task via EkoService (same as main.tsx)
+        let result: any = null;
         if (typeof window !== 'undefined' && (window.api as any)?.ekoModify) {
-          const request = (window.api as any).ekoModify(currentTaskId, message);
+          const request = (window.api as any).ekoModify(taskIdRef.current, message.trim());
           ekoRequestRef.current = request;
-          const result = await request;
+          result = await request;
           ekoRequestRef.current = null;
 
-          // Update task status
-          if (result && result.stopReason) {
-            setIsTaskRunning(false);
-            setCurrentTaskStatus(result.stopReason);
-            updateTask(currentTaskId, {
-              status: result.stopReason,
+          // Update task status based on result (same as main.tsx)
+          if (result && taskIdRef.current) {
+            updateTask(taskIdRef.current, {
+              status: result.stopReason
             });
           }
         }
@@ -374,10 +617,9 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
       setIsTaskRunning(false);
       setCurrentTaskStatus('error');
       
-      if (currentTaskId) {
-        updateTask(currentTaskId, {
-          status: 'error',
-        });
+      // Set task to error state when sending fails (same as main.tsx)
+      if (taskIdRef.current) {
+        updateTask(taskIdRef.current, { status: 'error' });
       }
 
       // Show user-friendly error message
@@ -385,12 +627,15 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
       antdMessage.error(errorMessage);
     } finally {
       setIsSending(false);
+      // Clear ekoRequest to allow next message (same as main.tsx)
+      ekoRequestRef.current = null;
     }
   }, [
     inputValue,
     isSending,
     currentTaskId,
     currentTask,
+    tasks,
     onSendMessage,
     createTask,
     updateTask,
@@ -408,6 +653,22 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
     },
     [handleSend]
   );
+
+  // Handle human interaction response (same as main.tsx)
+  const handleHumanResponse = useCallback(async (response: HumanResponseMessage) => {
+    try {
+      console.log('[LeftAgentSidebar] Sending human response:', response);
+      if (typeof window !== 'undefined' && (window.api as any)?.sendHumanResponse) {
+        await (window.api as any).sendHumanResponse(response);
+      } else {
+        console.error('[LeftAgentSidebar] sendHumanResponse API not available');
+        antdMessage.error('Failed to send response - API not available');
+      }
+    } catch (error) {
+      console.error('[LeftAgentSidebar] Failed to send human response:', error);
+      antdMessage.error('Failed to send response');
+    }
+  }, [antdMessage]);
 
   // Auto-resize textarea
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -466,13 +727,14 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
                   size="small"
                   danger
                   onClick={async () => {
-                    if (currentTaskId && typeof window !== 'undefined' && (window.api as any)?.ekoCancelTask) {
+                    if (taskIdRef.current && typeof window !== 'undefined' && (window.api as any)?.ekoCancelTask) {
                       try {
                         setIsTaskRunning(false);
-                        await (window.api as any).ekoCancelTask(currentTaskId);
-                        updateTask(currentTaskId, {
-                          status: 'cancelled',
+                        await (window.api as any).ekoCancelTask(taskIdRef.current);
+                        updateTask(taskIdRef.current, {
+                          status: 'error' as const,
                         });
+                        ekoRequestRef.current = null;
                         antdMessage.info('Task cancelled');
                       } catch (error) {
                         console.error('Failed to cancel task:', error);
@@ -495,7 +757,7 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
 
       {/* Messages */}
       <div className={styles.messages}>
-        {formattedMessages.length === 0 ? (
+        {displayMessages.length === 0 ? (
           <div className={styles.emptyState}>
             <RobotOutlined className={styles.emptyIcon} />
             <p>Start a conversation with AI Agent</p>
@@ -504,24 +766,10 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
             </p>
           </div>
         ) : (
-          formattedMessages.map((message) => (
-            <div
-              key={message.id}
-              className={`${styles.message} ${styles[`message${message.role}`]}`}
-            >
-              <Avatar
-                size="small"
-                className={styles.messageAvatar}
-                icon={message.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
-              />
-              <div className={styles.messageContent}>
-                <div className={styles.messageText}>{message.content}</div>
-                <div className={styles.messageTimestamp}>
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-            </div>
-          ))
+          <MessageList
+            messages={displayMessages}
+            onHumanResponse={handleHumanResponse}
+          />
         )}
         {isSending && (
           <div className={`${styles.message} ${styles.messageassistant}`}>
@@ -569,11 +817,19 @@ export const LeftAgentSidebar: React.FC<LeftAgentSidebarProps> = ({
         placement="right"
         onClose={() => setSettingsDrawerOpen(false)}
         open={settingsDrawerOpen}
-        width={400}
+        width={320}
+        zIndex={1050}
         styles={{
+          wrapper: {
+            zIndex: 1050,
+            marginTop: '48px', // Account for header height
+            height: 'calc(100vh - 48px)', // Constrain to viewport height
+          },
           body: {
             padding: '16px',
             background: 'var(--background-primary)',
+            height: '100%',
+            overflowY: 'auto',
           },
         }}
       >

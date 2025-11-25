@@ -22,6 +22,12 @@ export const HumanInteractionCard: React.FC<HumanInteractionCardProps> = ({
 
   // Handle user response
   const handleResponse = (success: boolean, result?: any, error?: string) => {
+    // Prevent duplicate responses
+    if (completed) {
+      console.warn('[HumanInteractionCard] Response already sent, ignoring duplicate');
+      return;
+    }
+    
     setCompleted(true);
     onResponse({
       requestId: message.requestId,

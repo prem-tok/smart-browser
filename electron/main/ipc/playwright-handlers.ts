@@ -12,6 +12,9 @@ import {
   click,
   type as typeText,
   screenshot,
+  screenshotAndHtml,
+  clickElementByIndex,
+  inputTextByIndex,
   getDomSnapshot,
   waitForPopup,
   type ApiResponse
@@ -116,6 +119,7 @@ export function registerPlaywrightHandlers(): void {
   
   // playwright:click
   ipcMain.handle('playwright:click', async (_event, ...args: any[]): Promise<ApiResponse> => {
+    log.warn('[Playwright IPC] ⚠️ playwright:click called (selector-based) - BrowserAgent should use clickElementByIndex instead!', args);
     if (!Array.isArray(args) || args.length < 2 || args.length > 3) {
       log.warn('[Playwright IPC] Invalid arguments for click:', args);
       return {
@@ -146,6 +150,7 @@ export function registerPlaywrightHandlers(): void {
   
   // playwright:type
   ipcMain.handle('playwright:type', async (_event, ...args: any[]): Promise<ApiResponse> => {
+    log.warn('[Playwright IPC] ⚠️ playwright:type called (selector-based) - BrowserAgent should use inputTextByIndex instead!', args);
     if (!Array.isArray(args) || args.length < 3 || args.length > 4) {
       log.warn('[Playwright IPC] Invalid arguments for type:', args);
       return {
@@ -248,6 +253,99 @@ export function registerPlaywrightHandlers(): void {
     
     const options = args.length === 2 && typeof args[1] === 'object' ? args[1] : undefined;
     return await waitForPopup(windowId, options);
+  });
+
+  // playwright:screenshotAndHtml (EKO framework compatible)
+  ipcMain.handle('playwright:screenshotAndHtml', async (_event, ...args: any[]): Promise<ApiResponse> => {
+    log.info('[Playwright IPC] playwright:screenshotAndHtml called', args);
+    if (!Array.isArray(args) || args.length < 1 || args.length > 2) {
+      log.warn('[Playwright IPC] Invalid arguments for screenshotAndHtml:', args);
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'Invalid arguments: expected [windowId, options?]' }
+      };
+    }
+    
+    const [windowId] = args;
+    
+    if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'windowId must be a non-empty string (max 100 chars)' }
+      };
+    }
+    
+    const options = args.length === 2 && typeof args[1] === 'object' ? args[1] : undefined;
+    return await screenshotAndHtml(windowId, options);
+  });
+
+  // playwright:clickElementByIndex (EKO framework compatible)
+  ipcMain.handle('playwright:clickElementByIndex', async (_event, ...args: any[]): Promise<ApiResponse> => {
+    log.info('[Playwright IPC] playwright:clickElementByIndex called', args);
+    if (!Array.isArray(args) || args.length < 2 || args.length > 3) {
+      log.warn('[Playwright IPC] Invalid arguments for clickElementByIndex:', args);
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'Invalid arguments: expected [windowId, index, options?]' }
+      };
+    }
+    
+    const [windowId, index] = args;
+    
+    if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'windowId must be a non-empty string (max 100 chars)' }
+      };
+    }
+    
+    if (typeof index !== 'number' || index < 0 || !Number.isInteger(index)) {
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'index must be a non-negative integer' }
+      };
+    }
+    
+    const options = args.length === 3 && typeof args[2] === 'object' ? args[2] : undefined;
+    return await clickElementByIndex(windowId, index, options);
+  });
+
+  // playwright:inputTextByIndex (EKO framework compatible)
+  ipcMain.handle('playwright:inputTextByIndex', async (_event, ...args: any[]): Promise<ApiResponse> => {
+    log.info('[Playwright IPC] playwright:inputTextByIndex called', args);
+    if (!Array.isArray(args) || args.length < 3 || args.length > 4) {
+      log.warn('[Playwright IPC] Invalid arguments for inputTextByIndex:', args);
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'Invalid arguments: expected [windowId, index, text, options?]' }
+      };
+    }
+    
+    const [windowId, index, text] = args;
+    
+    if (typeof windowId !== 'string' || windowId.length === 0 || windowId.length > 100) {
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'windowId must be a non-empty string (max 100 chars)' }
+      };
+    }
+    
+    if (typeof index !== 'number' || index < 0 || !Number.isInteger(index)) {
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'index must be a non-negative integer' }
+      };
+    }
+    
+    if (typeof text !== 'string' || text.length === 0 || text.length > 10000) {
+      return {
+        ok: false,
+        error: { code: 'INVALID_ARG', message: 'text must be a non-empty string (max 10000 chars)' }
+      };
+    }
+    
+    const options = args.length === 4 && typeof args[3] === 'object' ? args[3] : undefined;
+    return await inputTextByIndex(windowId, index, text, options);
   });
   
   log.info('[Playwright IPC] All Playwright IPC handlers registered');

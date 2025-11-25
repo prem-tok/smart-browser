@@ -50,6 +50,11 @@ export default defineConfig({
         /^@playwright\/.*/,
         /^playwright\/.*/,
         /^playwright-core\/.*/,
+        
+        // Sharp and its dependencies (native module, must be external)
+        'sharp',
+        /^@img\/sharp-.*/,
+        /^sharp\/.*/,
       ],
       output: {
         dir: 'dist/electron',

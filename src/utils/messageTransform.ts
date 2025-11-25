@@ -9,15 +9,16 @@ export class MessageProcessor {
   private agentGroups = new Map<string, AgentGroupMessage>();
   private executionId: string = '';
 
-  // Set execution ID
-  public setExecutionId(id: string) {
+  // Set execution ID (and optionally clear messages for new task)
+  public setExecutionId(id: string, clearMessages: boolean = false) {
     this.executionId = id;
+    if (clearMessages) {
+      this.clearMessages();
+    }
   }
 
   // Process streaming messages and convert to structured display messages
   public processStreamMessage(message: StreamCallbackMessage): DisplayMessage[] {
-    console.log('MessageProcessor processing message:', message.type, message);
-
     switch (message.type) {
       case 'workflow':
         this.handleWorkflowMessage(message);
@@ -46,12 +47,18 @@ export class MessageProcessor {
         break;
     }
 
-    console.log('MessageProcessor current message count:', this.messages.length);
     return [...this.messages];
   }
 
   // Handle workflow message
   private handleWorkflowMessage(message: any) {
+    // Skip workflow messages with null workflow - these indicate planning failures
+    // The Eko framework sends these when planning fails, and we should wait for
+    // the actual error message instead of creating an empty workflow message
+    if (!message.workflow && message.streamDone) {
+      return; // Don't create a workflow message if workflow is null and stream is done
+    }
+    
     const key = `${message.taskId}-${this.executionId}`;
     let workflowMsg = this.workflowMessages.get(key);
     
@@ -64,11 +71,20 @@ export class MessageProcessor {
         timestamp: new Date()
       };
       this.workflowMessages.set(key, workflowMsg);
-      // Add directly to message list in order
-      this.messages.push(workflowMsg);
+      // Only add to message list if workflow is not null
+      if (message.workflow) {
+        this.messages.push(workflowMsg);
+      }
     } else {
       // Update workflow information
       workflowMsg.workflow = message.workflow;
+      // If workflow becomes null, remove from messages (planning failed)
+      if (!message.workflow) {
+        const index = this.messages.findIndex(m => m.id === workflowMsg!.id);
+        if (index >= 0) {
+          this.messages.splice(index, 1);
+        }
+      }
     }
   }
 
@@ -147,21 +163,26 @@ export class MessageProcessor {
     }
 
     // Find or create corresponding text message
+    const streamId = message.streamId || message.id;
     let textMessage = agentGroup.messages.find(msg => 
-      msg.type === 'text' && msg.id === (message.streamId || message.id)
+      msg.type === 'text' && msg.id === streamId
     );
     
     if (!textMessage) {
       textMessage = {
         type: 'text',
-        id: message.streamId || message.id || uuidv4(),
+        id: streamId || uuidv4(),
         content: message.text || ''
       };
       agentGroup.messages.push(textMessage);
     } else {
       // Update text content (support streaming updates)
-      if (message.text) {
+      // If message.text is provided, use it (it should contain the full accumulated text)
+      // Otherwise, if message.delta is provided, append it
+      if (message.text !== undefined && message.text !== null) {
         (textMessage as any).content = message.text;
+      } else if (message.delta) {
+        (textMessage as any).content = ((textMessage as any).content || '') + message.delta;
       }
     }
   }

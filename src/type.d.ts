@@ -1,5 +1,5 @@
 // Supported providers
-export type ProviderType = 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openrouter';
+export type ProviderType = 'deepseek' | 'qwen' | 'google' | 'anthropic' | 'openai' | 'openrouter';
 
 // Model configuration types
 export interface UserModelConfigs {
@@ -17,6 +17,10 @@ export interface UserModelConfigs {
     model?: string
   }
   anthropic?: {
+    apiKey?: string
+    model?: string
+  }
+  openai?: {
     apiKey?: string
     model?: string
   }
@@ -120,7 +124,7 @@ declare global {
         newPage: (windowId: string) => Promise<{ ok: boolean; data?: { windowId: string; url: string }; error?: { code: string; message: string } }>
         closePage: (windowId: string) => Promise<{ ok: boolean; data?: null; error?: { code: string; message: string } }>
         goto: (windowId: string, url: string) => Promise<{ ok: boolean; data?: { windowId: string; url: string }; error?: { code: string; message: string } }>
-        listElements: (windowId: string, selector?: string, options?: { limit?: number }) => Promise<{ ok: boolean; data?: Array<{ selector: string; innerText: string; boundingBox: { x: number; y: number; width: number; height: number } | null }>; error?: { code: string; message: string } }>
+        listElements: (windowId: string, selector?: string, options?: { limit?: number }) => Promise<{ ok: boolean; data?: Array<{ index?: number; selector: string; innerText: string; boundingBox: { x: number; y: number; width: number; height: number } | null; tagName?: string; type?: string; role?: string; ariaLabel?: string; name?: string; id?: string; className?: string; href?: string; placeholder?: string; isVisible?: boolean; isEnabled?: boolean; isClickable?: boolean; suggestedSelector?: string; label?: string }>; error?: { code: string; message: string } }>
         click: (windowId: string, selector: string, options?: { 
           timeout?: number; 
           humanized?: boolean; 
@@ -147,6 +151,43 @@ declare global {
         screenshot: (windowId: string, options?: { fullPage?: boolean }) => Promise<{ ok: boolean; data?: { imageBase64: string; width: number; height: number }; error?: { code: string; message: string } }>
         getDomSnapshot: (windowId: string, options?: { selector?: string }) => Promise<{ ok: boolean; data?: string; error?: { code: string; message: string } }>
         waitForPopup: (windowId: string, options?: { timeout?: number; popupSelector?: string }) => Promise<{ ok: boolean; data?: { found: boolean; selector?: string }; error?: { code: string; message: string } }>
+        screenshotAndHtml: (windowId: string, options?: { 
+          fullPage?: boolean;
+          labelScreenshot?: boolean;
+          labelStyle?: {
+            fontSize?: number;
+            backgroundColor?: string;
+            textColor?: string;
+            borderColor?: string;
+            borderWidth?: number;
+            padding?: number;
+            borderRadius?: number;
+          };
+        }) => Promise<{ ok: boolean; data?: { screenshot: string; elements: Array<{ index: number; selector: string; innerText: string; boundingBox: { x: number; y: number; width: number; height: number } | null; tagName?: string; type?: string; role?: string; ariaLabel?: string; name?: string; id?: string; className?: string; href?: string; placeholder?: string; isVisible?: boolean; isEnabled?: boolean; isClickable?: boolean; suggestedSelector?: string; label?: string }>; html?: string; visionAnalysis?: { pageType: 'email' | 'form' | 'ecommerce' | 'social' | 'search' | 'unknown'; primaryActions: Array<{ elementIndex: number; action: 'click' | 'type' | 'scroll'; confidence: number; description: string }>; formFields: Array<{ elementIndex: number; fieldType: 'email' | 'password' | 'text' | 'textarea' | 'phone' | 'url'; label: string; required: boolean; placeholder?: string }>; context: { pageTitle: string; mainContent: string; suggestedActions: string[]; keyElements: string[] }; confidence: number } }; error?: { code: string; message: string } }>
+        clickElementByIndex: (windowId: string, index: number, options?: { 
+          timeout?: number; 
+          humanized?: boolean; 
+          humanOptions?: {
+            steps?: number;
+            jitter?: number;
+            minDelay?: number;
+            maxDelay?: number;
+            moveStrategy?: 'bezier' | 'linear';
+            safety?: { maxSteps?: number; maxDurationMs?: number };
+            forceRaw?: boolean;
+          }
+        }) => Promise<{ ok: boolean; data?: null; error?: { code: string; message: string } }>
+        inputTextByIndex: (windowId: string, index: number, text: string, options?: { 
+          timeout?: number; 
+          humanized?: boolean;
+          typeOptions?: {
+            minDelay?: number;
+            maxDelay?: number;
+            clearFirst?: boolean;
+            perCharJitter?: boolean;
+          };
+          enter?: boolean;
+        }) => Promise<{ ok: boolean; data?: null; error?: { code: string; message: string } }>
       }
     }
     // PDF.js type declarations
